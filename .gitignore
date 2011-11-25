@@ -1,9 +1,11 @@
+*.suo
+*.sdf
 Debug
 Release
 
 freewill/Debug
+freewill/Release
 freewill/*.aps
-freewill/*.filters
 freewill/*.user
 freewill/*_i.c
 freewill/*_p.c
@@ -21,8 +23,8 @@ freewill/common.h
 freewill/freewill.h
 
 fwaction/Debug
+fwaction/Release
 fwaction/*.aps
-fwaction/*.filters
 fwaction/*.user
 fwaction/*_i.c
 fwaction/*_p.c
@@ -31,8 +33,8 @@ fwaction/actionplus.h
 fwaction/fwaction.h
 
 fwrender/Debug
+fwrender/Release
 fwrender/*.aps
-fwrender/*.filters
 fwrender/*.user
 fwrender/*_i.c
 fwrender/*_p.c
@@ -40,11 +42,11 @@ fwrender/dlldata.c
 fwrender/fwrender.h
 
 fwview/Debug
+fwview/Release
 fwview/*.aps
-fwview/*.filters
 fwview/*.user
 
 fwlib/Debug
+fwlib/Release
 fwlib/*.aps
-fwlib/*.filters
 fwlib/*.user
