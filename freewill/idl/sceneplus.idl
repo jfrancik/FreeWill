@@ -1,0 +1,482 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// SCENE+ IDL file
+/// \file 
+/// Top Scene Objects; see \ref sceneplus
+
+import "kineplus.idl";
+import "meshplus.idl";
+import "rndrplus.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup sceneplus SCENE+ Module
+/// The Scene and its Renderee Objects.
+///
+/// This module defines the objects capable to be rendered or which otherwise affect 
+/// the final animation ("the renderees", see ISceneRenderee). These objects form 
+/// the Animation Scene and its top objects, like Scene Meshed Objects, Lights and Cameras.
+/// The generic interface of ISceneRenderee, together with the IRndrGeneric 
+/// both form the FreeWill+ basic rendering structure.
+///
+/// The interfaces here cover IScene and its objects: ISceneObject, ISceneCamera and ISceneLight.
+///
+/// \section SecConfSc How to Configure a Scene of Animation
+/// In most cases you will just load entire scenes from an external file (see IFileLoader),
+/// however understanding the whole process may be useful.
+///
+/// -# Create the Renderer Object (implements IRndrGeneric, see IRenderer for example).
+/// Use IFWDevice::CreateObject (see \ref FWCreate to learn how to create FreeWill+ objects).
+/// -# Initialise the Renderer calling IRndrGeneric::InitDisplay
+/// -# Call IRndrGeneric::GetBuffers to access hardware buffers and initialise them with
+///    IMeshVertexBuffer::Create and IMeshFaceBuffer::Create.
+///    Notice that the buffers must be created internally
+///    by the renderer, as they usually require low-level initialisation. Unlike most objects, they cannot
+///    be created with IFWDevice::CreateObject.
+/// -# Create Scene Object (implements IScene)
+/// -# Pass the Renderer to the Scene, calling IScene::SetRenderer
+/// -# At this stage you may pass the IScene object to IFileLoader::LoadScene to load all the objects
+/// from the file. In that case the scene will be complete, so omit remaining actions.
+/// -# To create Scene Meshed Objects (ISceneObject) use IScene::NewObject / IScene::AddObject facility functions.
+/// -# To add other screen objects (e.g. lights, cameras) use IScene::AddChild function.
+/// -# Supply meshes using ISceneObject::NewMesh or ISceneObject::AddMesh facility functions.
+/// -# Scene Meshed Objects, as all Renderees, implement IKineNode and so use them as a root node for the object's
+/// kinematical structure of bones.
+/// -# As the vertex blending facility (see \ref MeshVer) often requires plain (single-tier)
+/// namespaces for the bones, you will often want to add each bone in the hierarchy as an
+/// additional child node for the Scene Meshed Object. Use IKineNode::AddChildEx with the bSetParentalDep
+/// parameter set to FALSE to retain the appropriate parentship of this node. In this way
+/// the child bone will behave accordingly to its position in the kinematical hierarchy
+/// and in the same time will be visible directly in the Scene Meshed Object's namespace.
+///
+/// Further processing goes beyond the SCENE+ module, see \ref MeshSection and \ref KChain.
+///
+/// \remark 
+/// All Renderees inherit after IKineNode, so IKineNode::AddChild and similar functions
+/// may be used to configure the Animation Scene. Notice that whenever facility functions
+/// are provided for creating/adding new objects (IScene::NewObject, IScene::AddObject,
+/// ISceneObject::NewMesh, ISceneObject::AddMesh) it is strongly recommended to use them
+/// due to mandatory initialisation they provide.
+/// \remark
+/// IScene::Render will render only the scene's direct children, any renderees further 
+/// in the hierarchy must be rendered by hand. You can use IScene::AddChildEx with the
+/// bSetParentalDep parameter set to FALSE if you want to put an object twice into the structure.
+///
+/// \section SecAnimWorks How the FreeWill+ Animation Works
+/// The IScene object hosts all the entities subject to animation or otherwise affecting
+/// the rendering, so the IScene::Render is the system main entry gate for the rendering.
+/// Calling it usually requires some preliminary as well as finalising steps, see
+/// \ref fwrender for details. 
+///
+/// To achieve the animation you have to create the renderer object, set up the animation
+/// scene (see previous section), create a number of Animation Actions (see \ref actionplus)
+/// and repeatedly call IScene::Render (together with preliminary and finalising if required),
+/// supplying the current time [UNDOCUMENTED HOW TO DO IT]. You can also call any other 
+/// renderees to render (ISceneRenderee::Render), what may be indispensable in case they 
+/// are not direct children of the IScene Animation Scene.
+/// \sa \ref rndrplus
+///
+/// \section SceneImpl Implementation Remarks
+/// All the interfaces have standard implementation with full support as the kinematical chain
+/// links, thus "incorporating" the bones, see FreeWillPlus::SceneObject, 
+/// FreeWillPlus::SceneLight, FreeWillPlus::SceneCamera, FreeWillPlus::Scene.
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Assumption:
+// all [in], [in, out] and [out, retval] pointers must be valid: the implementation has no need to validate them
+// all [out] pointers may be NULL pointers: the implementation must not assign any values in such case
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// LIST OF INTERFACES
+
+// SCENE+ Generic Renderee
+interface ISceneRenderee;
+
+// SCENE+ Scene
+interface IScene;
+
+// SCENE+ Objects
+interface ISceneObject;
+interface ISceneLight;
+interface ISceneLightPoint;
+interface ISceneLightDir;
+interface ISceneLightSpot;
+interface ISceneCamera;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+// INTERFACE DEFINITIONS
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup sceneplus
+/// \interface ISceneRenderee
+/// SCENE+ Generic Renderee.
+///
+/// Abstraction of an object capable to render using the IRndrGeneric generic renderer 
+/// derivated object. Rendering in this context means not only displaying an object on screen, 
+/// but also otherwise affecting the overall rendering process like in case of lights and cameras.
+///
+/// This interface is used as a base class by all the interfaces in the \ref sceneplus
+/// but itself has no implemenation.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(631BC6A6-8758-41db-BFEB-C44E0206F772),
+	helpstring("SCENE+ Generic Renderee"),
+	pointer_default(unique)
+]
+interface ISceneRenderee : IKineNode
+{
+	/// @name Flag and Testing
+	HRESULT IsReady();					///< Returns S_OK if the object is initialised properly; S_FALSE otherwise
+	HRESULT IsVisible();				///< Returns S_OK if the object is visible (switched on); S_FALSE otherwise
+	HRESULT PutVisible(BOOL bOn);		///< Switches the object visibility on or off
+	HRESULT PutRenderHint(BOOL b);		///< Hints if the object should be rendered or not; implementation may ignore this call (return S_FALSE then)
+	HRESULT NeedsRendering(BOOL bReset);
+		///< The Master Render Flag: returns S_OK if all other flags and conditions are satisfied:
+		///< both Ready and Visible flags must be set; RenderHint may be taken into account; further conditions depend on implemenation
+		///< bReset is set to true after device reset, when objects are required to re-rendered if ready and visible
+
+	HRESULT GetRenderOrdinal(FWULONG*);	
+		///< The ordinal number determining the sequence in which objects are rendered (see more on \ref GetRenderOrdinal).
+		///< The IScene object keeps all renderees on a sorted Display List, and starts any rendering from
+		///< those with lower valures of the Render Ordinal.
+		///< The standard values are: 
+		///< - 20 for set-up objects (lights and cameras)
+		///< - 200 for meshed objects
+		///< Additionally, a user-specidfied offset (see \ref PutRenderOrdinalOffset) may be added to the above.
+		///< This value is rarely changed during the object life cycle. In case it is, call
+		///< IScene::SortDisplayList() in order for these changes to succeed. Also, after a PutRenderOrdinalOffset call
+		///< IScene::SortDisplayList() should be called.
+	
+	HRESULT PutRenderOrdinalOffset(FWULONG);	
+		///< An offset value to be added to the \ref GetRenderOrdinal function
+
+	/// @name Operations
+
+	HRESULT Render(IRndrGeneric*);		///< Renders the Renderee using the generic Renderer :-)
+	HRESULT Turnoff(IRndrGeneric*);		///< Turns the Renderee off using the generic Renderer
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup sceneplus
+/// \interface ISceneObject
+/// SCENE+ Meshed Object.
+///
+/// The Scene Meshed Object ties together a (part of) kinematical system (skeleton of bones)
+/// with one or more meshes spread on it, providing the essential functionality to
+/// render the meshed, multi-boned objects.
+///
+/// To be functional the Scene Meshed Objects must obtain a pointer to the Renderer Object
+/// (IRndrGeneric) - see ISceneObject::PutRenderer and \ref SecConfSc. Supplying the IMeshDictionary
+/// is not required, as typically the objects are capable to create a dictionary automatically.
+/// The \ref IsReady function (inherited from ISceneRenderee) tests if the Renderer is known.
+///
+/// Being an IKineNode derivative, a Scene Meshed Object is in fact the root bone of its own kinematical
+/// system. Use the IKineNode functions, eg. IKineNode::AddChild to build-up the object's bone skeleton.
+///
+/// Special purpose functions, \ref NewMesh and \ref AddMesh, create and
+/// add the meshes (IMesh objects). You can also add the meshes as conventional child nodes
+/// but doing so is highly unrecommended due to obligatory mesh initialisation.
+///
+/// To render the Scene Meshed Object, just call the \ref Render function inherited after ISceneRenderee.
+///
+/// \sa FreeWillPlus::SceneObject implementation class.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(24B1DDE2-0052-4cc7-B813-8C4F3FE1C210),
+	helpstring("SCENE+ Meshed Object"),
+	pointer_default(unique)
+]
+interface ISceneObject : ISceneRenderee
+{
+	/// @name Properties
+	/// Setting the Renderer is mandatory; the dictionary will be created automatically if needed
+
+	HRESULT GetRenderer([out] IRndrGeneric**);					///< Retrieves the Renderer Object
+	HRESULT PutRenderer([in]  IRndrGeneric*);					///< Sets the Renderer Object
+	HRESULT GetDictionary([out, retval] IMeshDictionary**);		///< Retrieves IMeshDictionary, creates a new one if none existed
+	HRESULT PutDictionary([in] IMeshDictionary*);				///< Sets IMeshDictionary
+
+	/// @name Material Functions
+
+	/// Retrieves the material object previously set with PutMaterial, or NULL if none
+	HRESULT GetMaterial([out, retval] IMaterial**);
+	/// Puts the default material for the object's meshes (more...).
+	/// Setting a new material affects all existing meshes as well as new meshes
+	/// added with NewMesh or AddMesh. If bOverwrite is set to TRUE, the material
+	/// will be overwritten for every mesh. If it is FALSE, meshes that have their
+	/// own material set by IMesh::SetMaterial will remain unaffected.
+	HRESULT PutMaterial(IMaterial*, BOOL bOverwrite);
+
+	/// @name Mesh Facility Functions
+	/// Even if meshes are added to the kinematical system as child nodes, 
+	/// it is highly recommended to use these functions instead of IKineNode::AddChild
+	/// to provide mandatory initialisation for the mesh objects
+
+	/// Creates a new Mesh and calls \ref AddMesh; uses IFWDevice::CreateObject to create a standard Mesh object
+	HRESULT NewMesh(FWSTRING pLabel, [out, retval] IMesh**);
+	/// Adds the given mesh to the internal list of meshes and initialises it
+	/// by passing the appropriate objects to IMesh::PutBuffers, and IMesh::PutDictionary
+	HRESULT AddMesh(FWSTRING pLabel, IMesh*);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup sceneplus
+/// \interface ISceneLight
+/// SCENE+ Light.
+///
+/// A Renderee (ISceneRenderee-derived) object that represents the scene's light source.
+/// This is an abstract interface, the implementation is available for its derivatives:
+/// ISceneLightPoint, ISceneLightDir, ISceneLightSpot.
+///
+/// Being an IKineNode derivative, the light may be put wherever in the kinematical chain.
+///
+/// \remarks
+/// - \ref IsReady checks if the light is properly initialised. The initialisation functions
+/// are defined in the derived interfaces.
+/// - see also other rendering-related functions defined in ISceneRenderee.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(DDBFE37A-51BC-448d-B48C-9D5383B81CFF),
+	helpstring("SCENE+ Light"),
+	pointer_default(unique)
+]
+interface ISceneLight : ISceneRenderee
+{
+	HRESULT GetDiffuseColor([out, retval] FWCOLOR*);	///< Gets the Diffuse Colour, default value is white
+	HRESULT PutDiffuseColor(FWCOLOR);					///< Puts the Diffuse Colour, default value is white
+	HRESULT GetSpecularColor([out, retval] FWCOLOR*);	///< Gets the Specular Colour, default value is black (no light)
+	HRESULT PutSpecularColor(FWCOLOR);				///< Puts the Specular Colour, default value is black (no light)
+	HRESULT GetAmbientColor([out, retval] FWCOLOR*);	///< Gets the Ambient Colour, default value is black (no light)
+	HRESULT PutAmbientColor(FWCOLOR);					///< Puts the Ambient Colour, default value is black (no light)
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup sceneplus
+/// \interface ISceneLightPoint
+/// SCENE+ Point Light.
+///
+/// A specialisation of the ISceneLight interface.
+///
+/// Call \ref Create function to initialise the point light source.
+///
+/// \sa FreeWillPlus::SceneLightPoint implementation class.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(116220C3-32DD-491b-96C7-55640AAB873A),
+	helpstring("SCENE+ Point Light"),
+	pointer_default(unique)
+]
+interface ISceneLightPoint : ISceneLight
+{
+	/// Creates the point light (\ref Create "details").
+	/// \param pPosition 3D Coordinates of the light source
+	/// \param fRange Range in which the light operates
+	/// \param fAtten0 Attenuation factor (0)
+	/// \param fAtten1 Attenuation factor (1)
+	/// \param fAtten2 Attenuation factor (2)
+	/// \remark This function may be called again to change the creation parameters
+	HRESULT Create(FWVECTOR pPosition, FWFLOAT fRange, FWFLOAT fAtten0, FWFLOAT fAtten1, FWFLOAT fAtten2);
+	/// Returns creation values; these values may defer from the given in \ref Create depending on the actual implementation
+	HRESULT GetCreateParams([out] FWVECTOR *pPosition, [out] FWFLOAT *fRange);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup sceneplus
+/// \interface ISceneLightDir
+/// SCENE+ Directional Light.
+///
+/// A specialisation of the ISceneLight interface.
+///
+/// Call \ref Create function to initialise the directional light source.
+///
+/// \sa FreeWillPlus::SceneLightDir implementation class, 
+/// which implements the directional light as a targeted object (IKineTargetedObj)
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(AB389947-574A-404a-8F08-B17100E9A3BA),
+	helpstring("SCENE+ Directional Light"),
+	pointer_default(unique)
+]
+interface ISceneLightDir : ISceneLight
+{
+	/// Creates the directional light (\ref Create "details").
+	/// \param vDirection Direction of the light; directional lights have no source and therefore no position
+	/// \remark This function may be called again to change the creation parameters
+	HRESULT Create(FWVECTOR vDirection);
+	/// Creates the directional light using the targeted object metaphore (\ref CreateEx "details").
+	/// \param vPosition, vTarget are used to calculate Direction which is equal to Target - Position; 
+	/// directional lights have no source and so no more meaning these vectors have.
+	/// \remark This function may be called again to change the creation parameters
+	HRESULT CreateEx(FWVECTOR vPosition, FWVECTOR vTarget);
+	/// Returns creation values; these values may defer from the given in \ref Create depending on the actual implementation
+	HRESULT GetCreateParams([out] FWVECTOR *vDirection);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup sceneplus
+/// \interface ISceneLightSpot
+/// SCENE+ Spot Light.
+///
+/// A specialisation of the ISceneLight interface.
+///
+/// Call \ref Create function to initialise the spot light source.
+///
+/// \sa FreeWillPlus::SceneLightSpot implementation class,
+/// which implements the spot light as a targeted object (IKineTargetedObj)
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(8FC3CF77-6B78-4e9e-B51E-FB595B9A85B9),
+	helpstring("SCENE+ Spot Light"),
+	pointer_default(unique)
+]
+interface ISceneLightSpot : ISceneLight
+{
+	/// Creates the spot light (\ref Create "details").
+	/// \param vPosition 3D position of the spot light
+	/// \param vDirection Direction in which the spot looks
+	/// \param fTheta Angle, in radians, of a spotlight's inner cone—that is, the fully illuminated spotlight cone. 
+	/// This value must be in the range from 0 through the value specified by Phi. 
+	/// \param fPhi Angle, in radians, defining the outer edge of the spotlight's outer cone. 
+	/// Points outside this cone are not lit by the spotlight. This value must be between 0 and pi. 
+	/// \param fFalloff Decrease in illumination between a spotlight's inner cone (the angle specified by Theta) 
+	/// and the outer edge of the outer cone (the angle specified by Phi).
+	/// The effect of falloff on the lighting is subtle. Furthermore, a small performance penalty 
+	/// is incurred by shaping the falloff curve. For these reasons, most developers set this value to 1.0. 
+	/// \remark This function may be called again to change the creation parameters
+	HRESULT Create(FWVECTOR vPosition, FWVECTOR vDirection, FWFLOAT fTheta, FWFLOAT fPhi, FWFLOAT fFalloff);
+	/// Creates the spot light using the targeted object metaphore (\ref CreateEx "details").
+	/// \param vPosition 3D position of the spot light
+	/// \param vTarget 3D position of the point towards the spot looks
+	/// \param fTheta, fPhi, fFalloff - see \ref Create
+	/// \remark This function may be called again to change the creation parameters
+	HRESULT CreateEx(FWVECTOR vPosition, FWVECTOR vTarget, FWFLOAT fTheta, FWFLOAT fPhi, FWFLOAT fFalloff);
+	/// Returns creation values; these values may defer from the given in \ref Create depending on the actual implementation
+	HRESULT GetCreateParams([out] FWVECTOR *vPosition, [out] FWVECTOR *vDirection, [out] FWFLOAT *fTheta, [out] FWFLOAT *fPhi, [out] FWFLOAT *fFalloff);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup sceneplus
+/// \interface ISceneCamera
+/// SCENE+ Camera.
+///
+/// A Renderee (ISceneRenderee-derived) object that represents a camera through which
+/// the scene is observed.
+///
+/// Being an IKineNode derivative, the camera may be put wherever in the kinematical chain.
+///
+/// \remark
+/// - \ref IsReady checks if the camera is properly initialised with the \ref Create function.
+/// - \ref PutVisible function switches off the previously active camera, if any. All the time
+/// there is exactly one camera that is switched on.
+/// - see also other rendering-related functions defined in ISceneRenderee.
+///
+/// \sa FreeWillPlus::SceneCamera implementation class,
+/// which implements the camera as a targeted object (IKineTargetedObj)
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(0B8B5356-1C56-4ce4-9DBE-C7A393E98ECC),
+	helpstring("SCENE+ Camera"),
+	pointer_default(unique)
+]
+interface ISceneCamera : ISceneRenderee
+{
+/// @name Creating the Camera
+/// Cameras mus be initialised before use
+
+	/// Creates the camera (\ref Create "details").
+	/// \param vPosition 3D position of the camera
+	/// \param vDirection Direction in which the camera looks
+	/// \param vUp Vector that determines the vertical direction in the camera image, used to tilt the camera
+	/// \remark This function may be called again to change the creation parameters
+	HRESULT Create(FWVECTOR vPosition, FWVECTOR vDirection, FWVECTOR vUp);
+	/// Creates the camera using the targeted object metaphore (\ref CreateEx "details").
+	/// \param vPosition 3D position of the camera
+	/// \param vTarget 3D position of the point towards the camera looks
+	/// \param vUp Vector that determines the vertical direction in the camera image, used to tilt the camera
+	/// \remark This function may be called again to change the creation parameters
+	HRESULT CreateEx(FWVECTOR vPosition, FWVECTOR vTarget, FWVECTOR vUp);
+	/// Returns creation values; these values may defer from the given in \ref Create depending on the actual implementation
+	HRESULT GetCreateParams([out] FWVECTOR *vPosition, [out] FWVECTOR *vDirection, [out] FWVECTOR *vUp);
+
+/// @name The Perspective
+/// Perspective Transform is optional, however its proper use may refine the image
+
+	/// Puts the perspective projection transformation (left-handed) - see \ref PutPerspective "details"
+	/// \param fFOV Field of view, in the y direction, in radians
+	/// \param fClipNear Z-value of the near view-plane \param fClipFar Z-value of the far view-plane
+	/// \param fAspect Aspect ratio, defined as view space height divided by width, 
+	///    use 0 for automatic value calculated from the window dimensions
+	HRESULT PutPerspective([in] FWFLOAT fFOV, [in] FWFLOAT fClipNear, [in] FWFLOAT fClipFar, [in] FWFLOAT fAspect);
+	/// Gets the perspective projection transformation, left-handed, see \ref PutPerspective for details
+	HRESULT GetPerspective([out] FWFLOAT *pFOV, [out] FWFLOAT *pfClipNear, [out] FWFLOAT *pfClipFar, [out] FWFLOAT *pAspect);
+
+	/// Returns the currently active camera (or NULL if unknown);
+	HRESULT GetCurrentCamera([out, retval] ISceneCamera **p);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup sceneplus
+/// \interface IScene
+/// SCENE+ Main Scene Object.
+///
+/// The top object in the FreeWill+ object hierarchy and the primary rendering goal.
+/// The scene is invisible by itself but constitutes an additional top level that
+/// hosts all the objects that subject to or take part in the rendering process
+/// (see ISceneObject, ISceneCamera, ISceneLight). 
+///
+/// To be functional the Scene must obtain a pointer to the Renderer Object
+/// (IRndrGeneric) - see IScene::PutRenderer and \ref SecConfSc.
+/// The \ref IsReady function (inherited from ISceneRenderee) tests if the Renderer is known.
+///
+/// Being an IKineNode derivative, the Scene usually provides the ultimate root node
+/// of the whole kinematical system. However you can use the IKineNode functions
+/// to build it, the IScene provides facility functions that not only
+/// construct the objects, but also guarantee their proper initialisation.
+///
+/// To render the whole scene, just call the \ref Render function inherited after ISceneRenderee.
+/// It will run the \ref Render functions for all the direct child nodes providing they are
+/// ISceneRenderee-derived objects. Notice that any Renderees that are not the direct
+/// children of the Scene will not be rendered.
+///
+/// \sa FreeWillPlus::Scene implementation class.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(F9ABE0C6-0960-42a4-9721-310525B589F7),
+	helpstring("SCENE+ Scene Object"),
+	pointer_default(unique)
+]
+interface IScene : ISceneRenderee
+{
+	/// @name Properties
+	/// Setting the Renderer is mandatory
+	HRESULT GetRenderer([out] IRndrGeneric**);					///< Retrieves the Renderer Object
+	HRESULT PutRenderer([in]  IRndrGeneric*);					///< Sets the Renderer Object
+
+	/// @name Scene Meshed Object Facility Functions
+	/// These functions create scene objects and put them among its child nodes;
+	/// necessary initialisation is performed where appropriate.
+
+	/// Creates a new Scene Meshed Object and calls \ref AddObject
+	HRESULT NewObject(FWSTRING pLabel, [out, retval] ISceneObject**);
+	/// Puts the given Scene Meshed Object among the child nodes and initialises it
+	/// by passing the renderer pointer to ISceneObject::PutRenderer
+	HRESULT AddObject(FWSTRING pLabel, ISceneObject*);
+
+	/// Returns the currently active camera (or NULL if unknown);
+	HRESULT GetCurrentCamera([out, retval] ISceneCamera **p);
+
+	/// Acknowledges the object about creation of a new camera; obligatory if there is no camera set as direct child of the Scene object
+	HRESULT PutCamera(ISceneCamera *p);
+
+	/// See ISceneRenderee::GetRenderOrdinal for meaning of this function
+	HRESULT SortDisplayList();
+};

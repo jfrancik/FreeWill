@@ -1,0 +1,905 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Common IDL file
+/// @file 
+/// Common definitions used throughout the whole project
+
+import "unknwn.idl";
+
+/// @defgroup common_types Common Data Types
+/// Definitions of data types intended to be used throughout the whole project.
+/// These are as follows:
+/// - Structural Data Types (refered as Classes):
+///		- Vectors (FWVECTOR3 / FWVECTOR4)
+///		- Triangle Faces (FWFACE)
+///		- Color Descriptors (FWCOLOR)
+///		- Alternative Transformation Representations (FWEULER, FWQUAT)
+///		- The Universal Creation Parameter Structure (FWPARAM)
+///
+///	- Scalar Types (\ref FWFLOAT, \ref FWDOUBLE, \ref FWULONG, \ref FWLONG, \ref FWSTRING)
+///	- Matrices (\ref FWMATRIX16, \ref FWMATRIX12, \ref FWMATRIX9)
+///	- Convenience Data Types provided for most commonly used data formats (\ref FWMATRIX & \ref FWVECTOR)
+
+/// @defgroup common_interfaces Common Interfaces
+/// The FreeWill+ Common Interfaces provide the common base interface IFWUnknown
+/// (to be used instead of IUnknown)
+/// and the IFWDevice, the framework fundamental utility class.
+///
+/// \section StdBase Using the Standard Base Interfaces
+///
+/// Like most object- or component-oriented libraries, FreeWill+ has a single interface class
+/// serving as an ultimate root for all the hierarchies. <b>Interfaces not derived from
+/// IFWUnknown will not conform the system rules</b>. The root interface
+/// covers following essential functionality:
+/// - Access to the central IFWDevice object (see below)
+/// - Cloning, ie. creating a new (uninitialised) object of the same class.
+/// - Class identification (string id as well as unique run-time FWULONG id)
+/// - Support for the class-specific error codes (see \ref ErrHandling below)
+/// - A facility function to raise an error. The actual error processing is done
+///   by IFWDevice.
+///
+/// \section FWDev The FreeWill+ Device
+///
+/// The IFWDevice is a host object for all the global functionality of the system
+/// and is the only object created directly - currently with:
+/// \code
+/// IFWDevice *p = NULL;
+/// CoCreateInstance(CLSID_FWDevice, NULL, CLSCTX_INPROC_SERVER, IID_IFWDevice, (void**)&p).
+/// \endcode
+/// 
+/// The FreeWill+ Device functionality covers following areas:
+/// - Repository for the FreeWill+ Objects
+/// - Object Registration and Tracking
+/// - Handling Errors
+///
+/// \section FWCreate Creating the FreeWill+ Objects
+///
+/// Besides the root IFWDevice object, all other FreeWill+ objects
+/// are normally created using one of the two following ways:
+/// - using IFWDevice repository functions like IFWDevice::CreateObject / IFWDevice::CreateUnknown. This will be described
+///   in detail in the next section.
+/// - using another object of the same class through its IFWUnknown::GetClone/IFWUnknown::Clone function
+///   This will create a single instance of the same class as the calling object.
+///
+/// Creating objects otherwise, eg. by CoCreateInstance or C++ new operator is not recommended
+/// and requires the created objects to be registered using IFWDevice::RegisterObject.
+///
+/// \section FWRepo  IFWDevice Object as the System Repository
+///
+/// Following are the System Repository Functions:
+/// - IFWDevice::CreateObject
+/// - IFWDevice::CreateObjectEx
+/// - IFWDevice::CreateUnknown
+/// - IFWDevice::CreateUnknownEx
+/// - IFWDevice::CreateContext
+///
+/// To create an object using one of the above functions you have to provide:
+/// - a Noun: a generalised class name
+/// - (optionally) a Verb: detailed specification of the required functionality
+/// - (optionally) a List of Parameters: any additonal information required.
+///
+/// The CreateObject and CreateObjectEx functions return the pointer of the class
+/// specified by the user and in C++ code save additional calls to QueryInterface.
+/// In C#, Visual Basic and scripting languages CreateUnknown/CreateUnknownEx may be considered,
+/// as in these languages QueryInterface is called automatically behind the scene
+/// and the functions do not require to provide the IIDs.
+///
+/// Objects are identified either by a Noun only or by a Noun+Verb pair.
+/// If a list of parameters is provided, it will be delivered to the object
+/// at its creation stage (see remarks below for the details).
+///
+/// \remark The Repository Configuration, ie. a hierarchical structure of Nouns, Verbs and
+/// their corresponding Classes is stored externally and load in the IFWDevice initialisation.
+/// The current implementation uses win32 system registry to store this structure, and CLSID's
+/// to hint the system how to create factory objects. This may be easily replaced by a different,
+/// win api independent solution (e.g. XML file with explicit dll names)
+/// A number of functions is provided in IFWDevice to browse and configure this structure.
+///
+/// \section FWRepoIns Object Creation Insight
+///
+/// A call to any of System Repository Functions (see above for the list) instantiates an internal 
+/// CreateContext object (IFWCreateContext) which encapsulates all the data needed to create
+/// and initialise this object and controls the whole process. The object gets Noun+Verb position
+/// within the repository structure and the parameter list.
+///
+/// First time when called for a given class, the CreateContext creates the initial factory object
+/// using the underlying technology (COM+ in the current Win32 implementation) and consequently
+/// calls this object as an object factory to create new objects of the given class.
+/// Thus, consecutive calls do not involve the underlying technology like COM+.
+/// This contributes to better efficiency and portability.
+///
+/// The repository makes it possible to register more than one class for the given Noun+Verb pair.
+/// In that case the CreateContext object queries all the classes calling IFWUnknown::QueryFitness
+/// for their respective factory objects to determine which class is the best fitted.
+///
+/// When the appropriate class is chosen, the repository calls IFWUnknown::GetClone for the chosen
+/// factory object to actually create the object.
+/// 
+/// The last stage is calling IFWUnknown::Create function for the newly created object to initialise it.
+/// The object being initialised may query the corresponding CreateContext to acquire all the necessary
+/// data. 
+///
+/// In case the object should access the creation parameters it should first call IFWCreateContext::EnumParams
+/// to create an IFWEnumParams instance. A range of QueryXXXX functions maintain type matching, automatic conversion
+/// and type checking.
+///
+///
+/// \section FWReg Object Registration and Tracking
+///
+/// Every object created in the FreeWill+ system must be registered with IFWDevice::RegisterObject
+/// to be supported. Objects created within system repository or cloned are registered automatically.
+/// Object created otherwise (unrecommended) must be registered manually.
+/// 
+/// Failing to register may cause functions like IFWUnknown::GetFWDevice/FWDevice crash.
+///
+/// \section ErrHandling Error Handling
+///
+/// The FreeWill+ handles following types of errors:
+///	- Common Errors, used in all classes, with unique codes (see \ref FW_ERROR_CODES),
+///	- Class-Specific Errors, with codes specific and meaningful only inside a class/interface/module,
+///	- Win32 System Errors.
+///
+/// \subsection EH1 Error Severity
+/// The errors may be at four levels of severity (see \ref FW_SEVERITY enumaration). By default,
+/// critical and serious errors are treated as \b severe errors and recoverable errors and
+/// warnings are treated as \b non-severe errors (warnings). This default setting may be changed with
+/// IFWDevice::PutSevereErrorLevel.
+///
+/// \subsection EH2 Checking Errors Locally
+/// With some limitations, you can check the error code immediately after a function returns.
+/// - Majority of functions return HRESULT codes. To immediately check if a function succeeded or failed 
+///	use SUCCEEDED or FAILED macros (defined in <winerror.h>) to test its result value. Only severe errors 
+/// cause functions to fail. Warnings and non-severe errors produce HRESULT values with 
+/// the most-significant bit clear, meaning the overall function success.
+/// - If the Exception Handling is turned on, functions will never fail, instead the control will
+/// be immediately moved to the "catch" error recovery routine. However always test functions
+/// for fail conditions as the system should work properly even with Exception Handling switched off.
+/// - Notice that codes of class-specific errors are context-sensible. Outside the class the
+/// HRESULT codes may be ambigous (various classes may produce various errors with the same code),
+/// so use rather global error checking to get context-free information.
+///
+/// \subsection EH3 Checking Errors Globally
+/// Global error checking gives a context-free, reliable error information.
+/// - For the global check if any errors occurred use IFWDevice::GetStatus. All severe errors
+/// change this global status to E_FAIL. Get more information with IFWDevice::GetErrorNum.
+/// - Call IFWDevice::GetLastError to get full error information. This call will reset
+/// the system status, so the next call to IFWDevice::GetStatus will return S_OK.
+/// - The FWERROR structure obtained from IFWDevice::GetLastError contains full info
+/// on the error and also a link to the previous error registered in the system, so it may be
+/// used as the full system log. Notice that while severe errors are usually detected just after
+/// they occurred, warnings will often cumulate in the log.
+///
+/// \remark Two error codes \ref FW_E_FREEWILL and \ref FW_E_BADINTERFACE have special status. Their
+/// occurence may often mean that the object was unable to proceed the usual error handling
+/// procedure, and they may lack the IFWDevice::GetLastError information!
+///
+/// \subsection EH4 Early Warning Systems: User Handlers and Exception Handling
+/// Use IFWDevice::SetUserErrorHandler to pass a pointer to your own function that will be
+/// called each time an error occurred or is recovered in the system. All data will be provided.
+/// 
+/// Call IFWDevice::EnableErrorException to enable the try-catch functionality. Each severe error
+/// will cause an exception to be thrown. Use try { ... } catch(FWERROR*e) construction to
+/// catch these exceptions. Notice, that the method does not guarantee all memory to be freed;
+/// what's more it may affect the system's ability to recover after errors. Use carefully;
+/// consider another method of error handling in your release version.\n
+/// Notice: IFWDevice::EnableErrorException function works with a cumulative counter; 
+/// TRUE will cause internal counter to increment, FALSE to decrement. The facility becomes
+/// active when the counter is not zero; the counter is never decremented below 0.
+///
+/// \subsection EH5 Raising Errors and Recovering
+/// Use following tips when you implement any function:
+/// - Report every new error by calling IFWUnknown::Error (available in every interface).
+/// - If the class reports any class-specific errors it is also required to supply the full
+/// information on these errors in IFWUnknown::GetClassError. It will be queried 
+/// immediately after a class-specific error is reported.
+/// - Notice that outside the class, the class-specific error codes may be ambigous.
+/// If you call another class' function which fails with class-specific error, <b>do not
+/// propagate</b> the ambigous code, use the reserved code \ref FW_E_CLASSSPECIFIC instead.
+/// The user will still be enabled to call IFWDevice::GetLastError and obtain the
+/// full, original information.
+/// - If your code causes the system to recover after raising an error, you may want to
+/// decrease this error's severity level, or even eradicate the error info. Use
+/// IFWDevice::Recover function.
+/// - Recovering may fail if \ref EH4 "Exception Handling" system is enabled. It may happen that an exception
+/// would be thrown or user error handler called before you recover. To avoid this use the following
+/// structure to assure you intercept all the exceptions:
+/// \code
+/// try { h = your_function(params); }
+/// catch(FW_ERROR *e) { h = e->nCode; }
+/// \endcode
+/// This will store the HRESULT in h regardless the exceptions are enabled or disabled. 
+/// Remember that you are obliged to throw an exception, or simply raise another error
+/// in case the system does NOT recover and the error should remain.
+///
+/// \section CommImpl Implementation Remarks
+/// See the standard implementation class for the FreeWill+ Device: FreeWillPlus::FWDevice.
+/// This implmentation is unlikely to be replaced in futeure modules.
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+interface IFWUnknown;
+interface IFWDevice;
+interface IFWCreateContext;
+interface IFWEnumParams;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Basic Type Definitions
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @name Simple Scalar Types
+/// \ingroup common_types
+#ifndef FWFLOAT
+typedef float FWFLOAT;			///< common float scalar data type
+#endif
+#ifndef FWDOUBLE
+typedef double FWDOUBLE;		///< common double float scalar data type
+#endif
+#ifndef FWULONG
+typedef unsigned long FWULONG;	///< common unsigned long integer scalar data type
+#endif
+#ifndef FWLONG
+typedef signed long FWLONG;		///< common unsigned long integer scalar data type
+#endif
+#ifndef FWSTRING
+typedef LPOLESTR FWSTRING;		///< common pointer to a string (wide format)
+#endif
+#ifndef FWPUNKNOWN
+typedef IUnknown *FWPUNKNOWN;	///< common pointer to an object
+#endif
+#ifndef FWPVOID
+typedef void *FWPVOID;			///< common generic pointer (void*)
+#endif
+#ifndef FWHANDLE
+typedef unsigned long FWHANDLE;	///< common handle data type
+#endif
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @name Classes
+
+/// Common 2D vector (x, y) data type. Represents vectors or points in 2D.
+/// \ingroup common_types
+typedef struct 
+{
+	FWFLOAT x;	///< vector x-value
+	FWFLOAT y;	///< vector y-value
+} FWVECTOR2;
+
+/// Common 3D Vector (x, y, z) data type. Represents vectors or points.
+/// \ingroup common_types
+typedef struct 
+{
+	FWFLOAT x;	///< vector x-value
+	FWFLOAT y;	///< vector y-value
+	FWFLOAT z;	///< vector z-value
+} FWVECTOR3;
+
+/// Common 4D vector (x, y, z, h) data type. Represents vectors or points.
+/// \ingroup common_types
+typedef struct 
+{ 
+	FWFLOAT x;	///< vector x-value
+	FWFLOAT y;	///< vector y-value
+	FWFLOAT z;	///< vector z-value
+	FWFLOAT h;	///< vector h-value
+} FWVECTOR4;
+
+/// Common triangular face data type. Contains three vector/point indices
+/// \ingroup common_types
+typedef struct 
+{ 
+	FWULONG a;	///< index of 'a' triangle vertex
+	FWULONG b;	///< index of 'b' triangle vertex
+	FWULONG c;	///< index of 'c' triangle vertex
+} FWFACE;
+
+/// Common colour data type. Contains three colour factors + alpha channel
+/// \ingroup common_types
+typedef struct 
+{ 
+	FWFLOAT r;	///< the red colour
+	FWFLOAT g;	///< the green colour
+	FWFLOAT b;	///< the blue colour
+	FWFLOAT a;	///< the alpha channel
+} FWCOLOR;
+
+/// Common Euler transformation data type
+/// Represents a rotation as a combination of the following three rotations:
+/// 1st: roll(z); 2nd: pitch(x); 3rd: yaw(y).
+/// \ingroup common_types
+typedef struct 
+{ 
+	FWDOUBLE yaw;	///< rotation yaw (Y)value; third of the yaw-pitch-roll transformations
+	FWDOUBLE pitch;	///< pitch (X) value; second of the yaw-pitch-roll transformations
+	FWDOUBLE roll;	///< roll (Z) value; first of the yaw-pitch-roll transformations
+} FWEULER;
+
+/// Common quaternion transformation data type
+/// \ingroup common_types
+typedef struct 
+{ 
+	FWDOUBLE x;	///< quaternion x value
+	FWDOUBLE y;	///< quaternion y value
+	FWDOUBLE z;	///< quaternion z value
+	FWDOUBLE w;	///< quaternion w value
+} FWQUAT;
+
+/// Common enumaration for data types allowed to be passed as parameters in FWPARAM structures
+/// \ingroup common_types
+/// @name Enumeration Types
+enum FW_PARAM
+{ 
+	FW_PARAM_NONE,		///< no parameter or default parameter
+	FW_PARAM_EOL,		///< DEPRECATED --- End Of List, delimits the parameter list supplied by the client
+	FW_PARAM_ULONG,		///< integer (FWULONG) parameter
+	FW_PARAM_FLOAT,		///< float parameter
+	FW_PARAM_STRING,	///< string parameter
+	FW_PARAM_VECTOR,	///< vector parameter
+	FW_PARAM_PUNKNOWN,	///< parameter being an unknown object (IFWUnknown)
+	FW_PARAM_PBONE,		///< parameter being a bone (child/node, IKineChild/IKineNode)
+	FW_PARAM_PBODY,		///< parameter being a body (IBody)
+};
+
+#define ____	// needed by doxygen
+
+interface IBody;
+
+/// Common Parameter Structure data type. 
+/// This structure is for use by clients creating new FreeWill objects 
+/// to pass creation parameters to objects.
+/// To be used with the Repository Functions (see \ref FWRepo).
+/// \ingroup common_types
+typedef struct
+{
+	enum FW_PARAM m_type;	///< Specifies the type of the parameter; see enum \ref FW_PARAM
+
+	/// Parameter Value (anonymous union)
+	[switch_type(enum FW_PARAM), switch_is(m_type)]
+	union 
+	{
+		[case(FW_PARAM_ULONG)] 		FWULONG m_ULONG;
+		[case(FW_PARAM_FLOAT)]	 	FWFLOAT m_FLOAT;
+		[case(FW_PARAM_STRING)]		FWSTRING m_STRING;
+		[case(FW_PARAM_VECTOR)]		FWVECTOR3 m_VECTOR;
+		[case(FW_PARAM_PUNKNOWN)] 	FWPUNKNOWN m_PUNKNOWN;
+		[case(FW_PARAM_PBONE)]		FWPUNKNOWN m_PBONE;
+		[case(FW_PARAM_PBODY)]		FWPUNKNOWN m_PBODY;
+	} ____;
+
+	FWULONG m_nIndex;			///< Specifies a 1-based index within the parameter list; use 0 for the natural order
+	FWSTRING m_pName;			///< Specifies a name for a named parameter; named params are excluded form the natural order of parameters
+} FWPARAM;
+
+#undef ____
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @name Matrices
+/// \ingroup common_types
+///
+/// \verbatim
+/// General convention: premultiplying with column vector (P' = M x P)
+/// Default format for matrices (DX/OGL compatible:)
+/// R00 R10 R20 T30
+/// R01 R11 R21 T31		R = rotation/scaling matrix	
+/// R02 R12 R22 T32		T = translation vector
+///  0   0   0   1		notice that scaling may cause problems while other representation are involved (quats)
+/// \endverbatim
+///
+typedef FWDOUBLE FWMATRIX16[4][4];		///< common matrix (4 x 4) transformation data type
+typedef FWDOUBLE FWMATRIX12[12];		///< common matrix (4 x 3) transformation data type
+typedef FWDOUBLE FWMATRIX9[3][3];		///< common matrix (3 x 3) transformation data type
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @name Convenience data type definitions
+/// \ingroup common_types
+/// Delivers short names for most common used data types
+
+typedef FWMATRIX16 FWMATRIX;	///< Most common matrix data type: 4 x 4
+typedef FWVECTOR3 FWVECTOR;		///< Most common vector-3 data type: x, y, z (see FWVECTOR3)
+
+//@}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @name Generic Interfaces
+// (usually extended by application interfaces)
+
+#ifndef MAKE_HRESULT
+	#define FACILITY_ITF 4
+	#define MAKE_HRESULT(sev,fac,code) ((HRESULT) (((unsigned long)(sev)<<31) | ((unsigned long)(fac)<<16) | ((unsigned long)(code))) )
+#endif
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup common_interfaces
+/// @name Common Error Codes
+/// Error codes used commonly by all the classes
+enum FW_ERROR_CODES
+{
+	/// The base code for the class-specific errors
+	FW_E_CLASS_ERRORS  = MAKE_HRESULT(1, FACILITY_ITF, 0x0400),
+	/// The base code for the common errors
+	FW_E_COMMON_ERRORS = MAKE_HRESULT(1, FACILITY_ITF, 0x4000),
+	
+	FW_E_FREEWILL = FW_E_COMMON_ERRORS,	///< Invalid FreeWill+ Object - created outside the FWDevice
+	FW_E_BADINTERFACE,					///< Interface not inherited from IFWUnknown
+	FW_E_NOINTERFACE,					///< Object does not implement required interface
+	FW_E_CLASSSPECIFIC,					///< Undefined class-specific error (ambigous code)
+	FW_E_CLASS,							///< The System could not create object because class implementation is unknown
+	FW_E_UNIDENTIFIED,					///< Unidentified error
+	FW_E_OUTOFMEMORY,					///< Run out of memory
+	FW_E_POINTER,						///< Invalid pointer
+	FW_E_NOTFOUND,						///< Object not found
+	FW_E_NOTREADY,						///< Object is not ready to perform the operation
+	FW_E_FORMAT,						///< Function not supported for this format
+	FW_E_BADINDEX,						///< Index out of range
+	FW_E_INVALIDARG,					///< One or more arguments are invalid
+	FW_E_MEMOVERRUN,					///< Memory buffer overrun
+	FW_E_STACKOVERRUN,					///< Memory overrun during a stack POP operation
+	FW_E_UNKNOWN_NOUN,					///< Unknown noun: %s
+	FW_E_UNKNOWN_NOUN_ID,				///< Unknown noun id: %d
+	FW_E_UNKNOWN_VERB,					///< Unknown verb: %s
+	FW_E_UNKNOWN_VERB_ID,				///< Unknown verb id: %d
+	FW_E_UNKNOWN_CLASS,					///< Unknown class: %s
+	FW_E_UNKNOWN_CLASS_ID,				///< Unknown class id: %d
+	FW_E_PARAM_TYPE_MISMATCH,			///< Parameter type mismatch when trying to create an object
+	FW_E_PARAM_BAD_INTERFACE,			///< Cannot create an object. Parameter does not implement required interface
+	FW_E_PARAM_IS_NULL,					///< Cannot create an object. Parameter in NULL
+	FW_E_PARAM_BAD_BONE,				///< Cannot create an object. Parameter does not represent any existing bone
+	FW_E_PARAM_NO_BONE_REF,				///< Cannot create an object. Parameter seems to be a bone label but there is no node reference
+	FW_E_PARAM_NO_BODY_REF,				///< Cannot create an object. Parameter seems to be a bone index but there is no body reference
+	FW_E_NAMED_PARAM_NOT_FOUND,			///< Named parameter not found when trying to create an object
+	FW_E_TOO_MANY_PARAMS,				///< Too many parameters when trying to create an object
+	FW_E_MISSING_PARAMS,				///< Missing parameters when trying to create an object
+	FW_E_PARAMS_INCONSISTENT,			///< Inconsistent or conflicting paranmeters
+	FW_E_PARAM_FIRST = FW_E_PARAM_TYPE_MISMATCH,
+	FW_E_PARAM_LAST = FW_E_PARAMS_INCONSISTENT,
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup common_interfaces
+/// @name Error Severity Levels
+/// This enumeration is a collection of values related to error severity levels.
+/// Notice that FW_SEV_WARNING to FW_SEV_CRITICAL are the error severity levels,
+/// while the other values are used as specific arguments or flags for some function calls.
+/// \sa \ref ErrHandling
+enum FW_SEVERITY
+{
+	FW_SEV_DEFAULT		= 0x00,	///< default (not overriden) severity level - used in IFWDevice::RaiseError and IFWUnknown::Error
+	FW_SEV_NOTHING		= 0x00, ///< "no error" value, causing IFWDevice::Recover function to completely erase error information
+	FW_SEV_WARNING		= 0x01,	///< just a warning, should never stop the animation
+	FW_SEV_RECOVERABLE	= 0x02,	///< minor recoverable error, should not stop the show unless accuracy is crucial
+	FW_SEV_SERIOUS		= 0x03,	///< major error, normally stops the animation, however recoverable if stability is crucial
+	FW_SEV_CRITICAL		= 0x04,	///< unrecoverable error, always stops the animation
+	FW_SEV_MASK			= 0xff,	///< mask for severity levels (excludes flags)
+	FW_SEV_SET_ATLEAST	= 0x100,///< flag: combined with severity SEV means "severity at SEV level or higher"
+	FW_SEV_SET_ATMOST	= 0x200	///< flag: combined with severity SEV means "severity at SEV level or lower"
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup common_interfaces
+/// \struct FWERROR
+/// The FreeWill+ Error Descriptor.
+struct FWERROR
+{
+	HRESULT nCode;			///< The error code
+	FWSTRING pMessage;		///< Full error message (formatted if applicable)
+	FWULONG nSeverity;		///< Severity Level: see FW_SEVERITY
+	FWSTRING pClassName;	///< Name of the class which generated the error (see IFWUnknown::ClassId)
+	FWULONG nRTCId;			///< RunTime Id of the class which generated the error (see IFWUnknown::RTCId)
+	IFWUnknown *pSender;	///< Sender of the error info (guaranteed valid only for immediate error handlers)
+	FWSTRING pSrcFile;		///< Source file where the error occurred (or NULL if unknown)
+	FWULONG nSrcLine;		///< Source line number where the error occurred (or NULL if unknown)
+	struct FWERROR *pPrev;	///< Link to the previous error. This forms a double list that may be treated as the system log.
+	struct FWERROR *pNext;	///< Link to the next error. This forms a double list that may be treated as the system log.
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup common_interfaces
+/// \interface IFWUnknown
+/// The FreeWill+ hierarchy root class.
+///
+/// All other interfaces MUST INHERIT from this.\n
+/// See \ref StdBase
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(8E280A68-589E-4053-8DEE-30E4195174F9),
+	helpstring("FreeWill+ Generic Unknown Object"),
+	pointer_default(unique)
+]
+interface IFWUnknown : IUnknown
+{
+	///////////////////////////////////////////////
+	/// @name Access to the FWDevice
+	/// The functions in this group are to make the IFWDevice object available from everywhere in the system
+	
+	/// Gets the FreeWill+ Device object
+	HRESULT GetFWDevice([out, retval] IFWDevice**);
+	/// Sets the FreeWill+ Device object: \b Attention: for internal use only, never call, use IFWDevice::RegisterObject instead
+	HRESULT PutFWDevice(IFWDevice*);
+
+	/// Quick access to the FreeWill+ Device: does not call AddRef, so don't use Release on the result!
+	[local] IFWDevice *FWDevice();
+
+
+	///////////////////////////////////////////////
+	/// @name Cloning
+	/// These simple functions create an unitialised object of the same class and thus enable objects
+	/// to be used as class factories
+
+	/// Produces a Clone - object of the same class and reveals a pointer to the specified interface
+	HRESULT GetClone(REFIID iid, [out, retval, iid_is(iid)] IFWUnknown **p);
+	/// Produces a Clone - object of the same class, a short form of GetClone
+	[local] IFWUnknown *Clone(REFIID iid);
+
+	///////////////////////////////////////////////
+	/// @name Object Initialisation
+	/// The functions in this group are called exclusively by the System Repository when an object is created.
+	/// QueryFitness is called only when there is more than one class registered for the given Noun/Verb pair.
+	/// Create is called only from the repository; it will not be called when an object is cloned.
+	/// \sa \ref FWRepoIns
+
+	/// Queries the object about how well it is fitted to perform a given task (\b more).
+	/// This function is called exclusively from within the system repository.
+	/// This function is called only in case of more than one class is registered for the given
+	/// Noun+Verb pair. The call gives the class a chance to affect resolving this ambiguity.
+	/// The function is called on behalf of the factory object, before actually creating a new one,
+	/// and thus it should refrain from any initialisation stuff and should keep the object internal state.
+	/// \sa \ref FWRepoIns
+	HRESULT QueryFitness(IFWCreateContext*, [out, retval] FWFLOAT *pfFitness);
+
+	/// Called just after the object is created to allow for class-specific initialisation (\b more).
+	/// Call back the IFWCreateContext member functions to get the details of the creation process.
+	/// Call IFWCreateContext::EnumParams to create an IFWEnumParams object and access the creation parameters provided by the calling client.
+	/// \sa \ref FWRepoIns
+	HRESULT Create(IFWCreateContext*);
+
+	///////////////////////////////////////////////
+	/// @name Class Identification
+
+	HRESULT GetClassId([out, retval] FWSTRING*);	///< Class Identifier String
+	HRESULT GetRTCId([out, retval] FWULONG*);		///< Unique RunTime Class Id - not kept between application runs
+
+	///////////////////////////////////////////////
+	/// @name Error Handling
+
+	/// This function should be called <b> each time an error condition occurrs</b>! \ref Error "(details)".
+	///
+	/// The \b Error \b Code is the essential parameter you have to pass, and may be any of the following:
+	/// - One of the Common Error Codes (\ref FW_ERROR_CODES). The error message & severity level is then supplied automatically.
+	/// - A class-specific error code. The error message & severity level.
+	///	must be supplied by the class, see IFWUnknown::GetClassError.
+	/// - COM system HRESULT value (not recommended), the error message is supplied by the system
+	///
+	/// You will often call this function with the default values of all the other params, like
+	/// \code Error(YOUR_ERROR_CODE, 0, NULL, NULL, 0); \endcode
+	/// \sa \ref ErrHandling
+	///
+	/// \param nErrorCode - The Error Code (see above)
+	/// \param nParams, pParams - An array of parameters to be used to format the error message
+	/// \param pMessage - Pass a value here to override the default error message 
+	/// \param nSeverity - Pass a value here to override the default severity code; you may use \ref FW_SEV_SET_ATLEAST/ATMOST flags
+	/// \return The HRESULT nErrorCode, which may be returned by the caller function as the error result.
+	/// \remark This is a convenience function that calls IFWDevice::RaiseError function.
+	/// \remark See \ref ErrorSrc for extended source file/line no information
+	HRESULT Error(HRESULT nErrorCode, FWULONG nParams, [size_is(nParams)] FWULONG *pParams,
+		FWSTRING pMessage, FWULONG nSeverity);
+
+	/// Called just before \ref Error, this function may submit information on error source file & line number; see \ref ErrorSrc "details".
+	/// You can facilitate the use of this function using the following macro:
+	/// \code
+	/// #define ERROR ErrorSrc(L##__FILE__, __LINE__), Error
+	/// // then raise errors in your code in this way:
+	/// return ERROR(YOUR_ERROR_CODE, 0, NULL, NULL, 0); 
+	/// \endcode
+	/// \remark This is a convenience function that calls IFWDevice::RaiseErrorSrc function.
+	HRESULT ErrorSrc(FWSTRING pSrcFile, FWULONG nSrcLine);
+
+	/// Provides the description of the class-specific errors to the system \ref GetClassError "(details)".
+	/// This function should be implmented in all classes that raise own class-specific errors
+	/// and it is called by IFWUnknown::Error / IFWDevice::RaiseError 
+	/// each time such an error is reported.
+	/// \param nCode the class-specific error code
+	/// \param nParams, pParams array of parameters for message construction: 0, NULL if none
+	/// \retval pMessage the error message
+	/// \retval pSeverity the error default severity code
+	/// \sa IFWUnknown::Error, IFWDevice::RaiseError, \ref ErrHandling
+	HRESULT GetClassError(FWULONG nCode, FWULONG nParams, [size_is(nParams)] FWULONG *pParams, 
+						 [out] FWSTRING *pMessage, [out] FWULONG *pSeverity);
+
+	///////////////////////////////////////////////
+	/// @name OBSOLETE!
+	/// A general facility to store and retrieve various specific, implementation-oriented objects.
+
+	HRESULT GetContextObject([in] FWULONG index, [out] IID *pIID, [out, retval, iid_is(pIID)] void **pUnknown);
+	HRESULT PutContextObject([in] FWULONG index, [in] REFIID iid, [in, iid_is(iid)] void *pUnknown);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup common_interfaces
+/// \interface IFWDevice
+/// The FreeWill+ Device.
+/// To get more information view the following topics:
+/// - \ref FWDev 
+/// - \ref FWCreate
+/// - \ref FWRepo
+/// - \ref FWRepoIns
+/// - \ref FWReg
+/// - \ref ErrHandling
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(3AD9114F-E70B-4913-8425-66378827E463),
+	helpstring("FreeWill+ Main Device"),
+	pointer_default(unique)
+]
+interface IFWDevice : IFWUnknown
+{
+	////////////////////////////////////////////////////////////////////
+	/// @name Object Repository
+	/// Object Repository is a subsystem that allows to create new FreeWill+ objects.
+	/// These functions are used to create FreeWill+ objects:
+	/// - in most cases it is enough to provide the Noun (class name) to create an object: use IFWDevice::CreateObject
+	/// - if you need to provide the Noun, the Verb and/or the Parameters, use IFWDevice::CreateObjectEx
+	/// - for full control, use IFWDevice::CreateContext
+	/// - to get IFWUnknown pointers and call QueryInterface on your own, call IFWDevice::CreateUnknown or IFWDevice::CreateUnknownEx
+	///
+	/// See \ref FWCreate (and following sections) for details.
+
+	/// Create the default object using a Noun
+	HRESULT CreateObject(FWSTRING theNoun, REFIID iid, [out, retval, iid_is(iid)] IFWUnknown**);
+
+	/// Create an object using a Noun, Verb and Parameters
+	HRESULT CreateObjectEx(FWSTRING theNoun, FWSTRING theVerb, 
+						  FWULONG nParams, [size_is(nParams)] FWPARAM *pParams, 
+						  REFIID iid, [out, retval, iid_is(iid)] IFWUnknown**);
+
+	/// Create the default object using a Noun; returns a pointer to IFWUnknown
+	HRESULT CreateUnknown(FWSTRING theNoun, [out, retval] IFWUnknown**);
+
+	/// Create an object using a Noun, Verb and Parameters; returns a pointer to IFWUnknown
+	HRESULT CreateUnknownEx(FWSTRING theNoun, FWSTRING theVerb, 
+						  FWULONG nParams, [size_is(nParams)] FWPARAM *pParams, 
+						  [out, retval] IFWUnknown**);
+
+	/// Similar to IFWDevice::CreateObjectEx but an IFWCreateContext instance is created
+	/// instead of the actual object
+	HRESULT CreateContext(FWSTRING theNoun, FWULONG idNoun, FWSTRING theVerb, FWULONG idVerb, 
+						   FWULONG nParams, [size_is(nParams)] FWPARAM *pParams, 
+						   [out, retval] IFWCreateContext**);
+
+	////////////////////////////////////////////////////////////////////
+	/// @name FreeWill+ Device Configuration
+	/// Device configuration is a hierarchical structure with a list of Nouns on the top,
+	/// their responsive Verbs in the middle and a set of Classes for each verb
+	/// at the bottom. The following functions allow to browse, analyse and build-up this structure
+	/// and thus fine-tune the system repository
+	/// \sa \ref FWRepo
+
+	HRESULT GetNounCount([out, retval] FWULONG*);											  ///< Noun counter
+	HRESULT NounToId(FWSTRING theNoun, [out, retval] FWULONG*);								  ///< Finds numerical id for the given Noun name
+	HRESULT IdToNoun(FWULONG idNoun, [out, retval] FWSTRING*);								  ///< Finds Noun name for the given numerical id
+	HRESULT AddNoun(FWSTRING theNoun, FWSTRING theGenericVerb, [out, retval] FWULONG*);		  ///< Adds a new Noun; S_FALSE if alredy existing; returns its numerical id
+
+	HRESULT GetVerbCount(FWULONG idNoun, [out, retval] FWULONG*);							  ///< Verb counter
+	HRESULT VerbToId(FWULONG idNoun, FWSTRING theVerb, [out, retval] FWULONG*);				  ///< Finds numerical id for the given Verb name
+	HRESULT IdToVerb(FWULONG idNoun, FWULONG idVerb, [out, retval] FWSTRING*);				  ///< Finds Verb name for the given numerical id
+	HRESULT AddVerb(FWULONG idNoun, FWSTRING theVerb, [out, retval] FWULONG*);				  ///< Adds a new Verb; S_FALSE if alredy existing; returns its numerical id
+
+	HRESULT GetClassCount(FWULONG idNoun, FWULONG idVerb, [out, retval] FWULONG*);			  ///< Class counter
+	HRESULT ClassToId(FWULONG idNoun, FWULONG idVerb, FWSTRING theClass, [out, retval] FWULONG*); ///< Finds numerical id for the given Class name
+	HRESULT IdToClass(FWULONG idNoun, FWULONG idVerb, FWULONG idClass, [out, retval] FWSTRING*);  ///< Finds Class name for the given numerical id
+	HRESULT AddClass(FWULONG idNoun, FWULONG idVerb, FWSTRING theClass, [out, retval] FWULONG*);  ///< Adds a new Class; S_FALSE if alredy existing; returns its numerical id
+
+	/// Adds a new Class name; uses a class instance instead of Clsid; returns its numerical id; 
+	/// notice that classes added with this function will not be stored with IFWDevice::Store function
+	HRESULT AddInstantClass(FWULONG idNoun, FWULONG idVerb, IFWUnknown *pInstant, [out, retval] FWULONG*);
+
+	// OBSOLETE
+	//HRESULT GetArgCount(FWULONG idNoun, FWULONG idVerb, [out, retval] FWULONG*);			  ///< Arg counter
+	//HRESULT ArgToId(FWULONG idNoun, FWULONG idVerb, FWSTRING theArg, [out, retval] FWULONG*);	  ///< Finds numerical id for the given Arg name
+	//HRESULT IdToArg(FWULONG idNoun, FWULONG idVerb, FWULONG idArg, [out, retval] FWSTRING*);	  ///< Finds Arg name for the given numerical id
+	//HRESULT AddArg(FWULONG idNoun, FWULONG idVerb, 
+	//			FWSTRING theArg, FWULONG nIndex, enum ARGTYPES type, [out, retval] FWULONG*);	  ///< Adds a new Arg; S_FALSE if alredy existing; returns its numerical id
+
+	HRESULT Load();		///< Loads the configuration from the system registry or from a system file
+	HRESULT Store();	///< Stores the configuration into the system registry or into a system file;
+
+	////////////////////////////////////////////////////////////////////
+	/// @name Object Registration and Tracking
+	/// See \ref FWReg
+	
+	/// Registers system object - called automatically by creation functions and IFWUnknown::Clone; 
+	/// use this function if you create objects directly (for example using CoCreateInstance or C++ new operator)
+	HRESULT RegisterObject(IFWUnknown*);
+	/// Unregisters system object - to be called from inside destructors only!
+	HRESULT UnregisterObject(IFWUnknown*);
+	/// Returns the counter of registered objects; may be used to track if all objects have been released when system terminates
+	HRESULT GetRegisteredObjectsCount([out, retval] FWULONG*);
+
+
+	////////////////////////////////////////////////////////////////////
+	/// @name Error Handling
+	/// See \ref ErrHandling
+
+	/// Returns S_OK if no severe error occured or E_FAIL otherwise; any call to \ref GetLastError clears status to S_OK.
+	HRESULT GetStatus();
+
+	/// Provides the detailed information on the most recent error \ref GetLastError "(details)".
+	/// Supplies the full information on the last error. This function clears also the system status
+	/// so the next call to \ref GetStatus will return S_OK, and also resets some counters provided by \ref GetErrorNum.
+	/// \return The last error code, or S_OK if no error occured.
+	HRESULT GetLastError([out, retval] struct FWERROR**);
+
+	/// Returns the counter of error messages, see \ref GetErrorNum "details" for possible options.
+	/// This function gives a choice between four distinct counters:
+	/// \param bSevereErrorsOnly If TRUE, only severe errors will be counted. Otherwise both errors and warnings are counted.
+	/// \param bRecentErrorsOnly If TRUE only errors since \ref GetLastError function call are counted. All errors otherwise.
+	HRESULT GetErrorNum(BOOL bSevereErrorsOnly, BOOL bRecentErrorsOnly, [out, retval] FWULONG*);
+
+	/// Turns on or off Error Exception Handling; for details see \ref EH4
+	HRESULT EnableErrorException(BOOL b);
+	/// Checks if Error Exception Handling is on (S_OK) or off (S_FALSE)
+	HRESULT IsErrorExceptionEnabled();
+
+	/// Sets the User Error Handler function; see \ref SetUserErrorHandler "details".
+	/// The function passed as a param will be called each time an error is raised (\ref RaiseError)
+	/// or recovered (\ref Recover). The function of the form:\n
+	/// HRESULT __stdcall Fun(struct FWERROR *p, BOOL bRaised);   \n
+	/// will get the last error info and a bool flag detrmining if the error has been raised or recovered.
+	/// The result of the function will be returned by IFWill::RaiseError, so in most cases
+	/// you should return p->nCode, unless you want to override the default value. \sa \ref EH4
+	[local] HRESULT SetUserErrorHandler(HRESULT(*)(struct FWERROR*, BOOL bRaised));
+	/// Gets the User Error Handler function; see \ref SetUserErrorHandler for details
+	[local] HRESULT GetUserErrorHandler([out, retval] HRESULT(**)(struct FWERROR*, BOOL bRaised));
+
+	/// Submits and processes the error information \ref RaiseError "(details)".
+	/// This function is routinely called from IFWUnknown::Error convenience function,
+	/// with pSender param set to the calling object (see \ref IFWUnknown::Error "there"
+	/// for details). It processes the error and produces the information available then from
+	/// \ref GetLastError function.
+	HRESULT RaiseError(IFWUnknown *pSender, FWULONG nCode, FWULONG nParams, [size_is(nParams)] FWULONG *pParams,
+		FWSTRING pMessage, FWULONG nSeverity);
+	/// Pre-submits information on source file and line number just before RaiseError is called; 
+	/// this information will be available though \ref GetLastError
+	HRESULT RaiseErrorSrc(FWSTRING pSrcFile, FWULONG nSrcLine);
+
+	/// Recovers after an error - see \ref Recover "details".
+	/// Call this function to change the severity of the last occured error. 
+	/// Usually you will do this to decrease the error severity when the system recovered after
+	/// a critical error. You can use a special value Recover(FW_SEV_NOTHING) to eradicate
+	/// any information on this error, or Recover(FW_SEV_WARNING) to leave it as a warning.
+	/// You are also allowed to increase the severity if required.
+	HRESULT Recover(FWULONG nSeverity);
+
+	/// Returns the system current error severity level, see \ref PutSevereErrorLevel for details
+	HRESULT GetErrorSeverityLevel([out, retval] FWULONG *nSeverity);
+
+	/// Returns the system current error severity level, see \ref PutSevereErrorLevel "details".
+	/// This function defines the system behaviour in case of errors with various severity (FW_SEVERITY) codes.
+	/// Use one of the following value:
+	/// - PutSevereErrorLevel(FW_SEV_CRITICAL): all but critical errors will be considered just as warnings, 
+	///   in this mode possibly serious errors (FW_SEV_SERIOUS) allow the animation to continue undisturbed
+	/// - PutSevereErrorLevel(FW_SEV_SERIOUS): default setting, critical and serious errors will stop the action
+	/// - PutSevereErrorLevel(FW_SEV_RECOVERABLE): also minor, usually recoverable errors will be treated as critical
+	/// - PutSevereErrorLevel(FW_SEV_WARNING): all messages, including warnings, treated as critical errors
+	/// - any other value will cause FW_E_INVALIDARG error.
+	HRESULT PutSevereErrorLevel(FWULONG nSeverity);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup common_interfaces
+/// \interface IFWCreateContext
+/// The FreeWill CreateContext Object.
+/// Encapsulates the object creation process.
+/// The objects implementing this interface are created internally 
+/// by the system repository functions like IFWDevice::CreateObject.
+/// You can directly access IFWCreateContext by calling IFWDevice::CreateContext.
+/// This can provide you a precise control over the process of object creation.
+/// If there is more than one object registered for the given Noun/Verb pair
+/// IFWCreateContext::Create will call IFWUnknown::QueryFitness of all
+/// the candidates to determine the best fitted one. If, still, there is more than
+/// one equally (or similarily) fitted objects, one of them will be chosen on the
+/// random basis. Thus consecutive calls to IFWCreateContext::Create will not
+/// necessarilly produce objects of the same class. Call IFWCreateContext::Reject
+/// to exclude the last created class from furure consideration.
+/// \sa FWRepoIns
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(B7B685A2-06E1-4f2c-AC55-6A744AD57574),
+	helpstring("FreeWill+ CreateContext"),
+	pointer_default(unique)
+]
+interface IFWCreateContext : IFWUnknown
+{
+	HRESULT GetContext([out] FWSTRING *pNoun, [out] FWSTRING *pVerb);		///< Gets the Symbolic Noun and Verb Name
+	HRESULT GetContextId([out] FWULONG *pIdNoun, [out] FWULONG *pIdVerb);	///< Gets the Noun and Verb id values
+
+	/// Creates the objects using the Noun, Verb and Params using the best-fitted paradigm
+	HRESULT Create(REFIID iid, [out, retval, iid_is(iid)] IFWUnknown**);
+
+	/// Creates the objects using the Noun, Verb and Params using the best-fitted paradigm; returns a pointer to IFWUnknown
+	HRESULT CreateUnknown([out, retval] IFWUnknown**);
+
+	/// Creates an IFWEnumParams enumeration object - for unnamed parameters
+	HRESULT EnumParams([out, retval] IFWEnumParams **p);
+
+	/// Creates an IFWEnumParams enumeration object - for named parameters
+	HRESULT EnumParamsEx(FWSTRING pName, [out, retval] IFWEnumParams **p);
+
+	HRESULT SubmitULONG(FWULONG val);			///< Submits a FWULONG parameter to the end of the parameter list
+	HRESULT SubmitFLOAT(FWFLOAT val);			///< Submits a FWFLOAT parameter to the end of the parameter list
+	HRESULT SubmitSTRING(FWSTRING val);			///< Submits a FWSTRING parameter to the end of the parameter list
+	HRESULT SubmitVECTOR(FWVECTOR val);			///< Submits a FWVECTOR parameter to the end of the parameter list
+	HRESULT SubmitPUNKNOWN(FWPUNKNOWN val);		///< Submits a FWPUNKNOWN parameter to the end of the parameter list
+	HRESULT SubmitPBONE(FWPUNKNOWN val);		///< Submits a PBONE parameter to the end of the parameter list
+	HRESULT SubmitPBODY(FWPUNKNOWN val);		///< Submits a PBODY parameter to the end of the parameter list
+
+	/// Rejects the current best fitted object: call to move to create second (next) best fitted
+	HRESULT Reject();
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup common_interfaces
+/// \interface IFWEnumParams
+/// Object Creation Enumeration Object
+///
+/// Use this object to query for parameters while creating an object.
+/// An instance of this class may only be created with IFWCreateContext::EnumParams.
+/// This class is exempt from FreeWill+ standard error scheme. QueryXXXX functions return
+/// HRESULT codes but do not raise errors. This is useful if some errors should be ignored,
+/// for example in case of optional parameters. The client module should identify serious
+/// errors and raise them using \ref IFWEnumParams::ErrorEx, a specialised error function
+/// that provides nore detailed diagnostics.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(3166CEDA-692D-4834-8392-759EC40D30D2),
+	helpstring("FreeWill+ object creation parameters enumerator"),
+	pointer_default(unique)
+]
+interface IFWEnumParams : IFWUnknown
+{
+	/// Low level function returning the number of parameters left in the enumeration
+	[local] FWULONG GetNum();
+	/// Low level function returning the current index value
+	[local] FWULONG GetIndex();
+	/// Low level function that allows to set the new current index value
+	[local] void PutIndex(FWULONG i);
+
+	/// Generic Query function: queries for the FWPARAM value at current handle position and increments the handle pos if successful
+	HRESULT QueryParam([out] FWPARAM **pParam);
+	/// Queries for a FWULONG parameter at the current handle position and increments the handle pos if successful
+	HRESULT QueryULONG([in] [out] FWULONG *val);
+	/// Queries for a FWFLOAT parameter at the current handle position and increments the handle pos if successful
+	HRESULT QueryFLOAT([in] [out] FWFLOAT *val);
+	/// Queries for a FWSTRING parameter at the current handle position and increments the handle pos if successful
+	HRESULT QuerySTRING([in] [out] FWSTRING *val);
+	/// Queries for a FWVECTOR parameter at the current handle position and increments the handle pos if successful
+	HRESULT QueryVECTOR([in] [out] FWVECTOR *val);
+	/// Queries for a FWPUNKNOWN parameter at the current handle position and increments the handle pos if successful
+	HRESULT QueryPUNKNOWN([in] REFIID iid, [out, iid_is(iid)] FWPUNKNOWN *val);
+	/// Queries for a PBONE parameter at the current handle position and increments the handle pos if successful
+	HRESULT QueryPBONE([in] REFIID iid, [out, iid_is(iid)] FWPUNKNOWN *val);
+	/// Queries for a PBODY parameter at the current handle position and increments the handle pos if successful
+	HRESULT QueryPBODY([in] REFIID iid, [out, iid_is(iid)] FWPUNKNOWN *val);
+
+	/// Skips over the next specified number of entries in the params sequence 
+	HRESULT Skip([in] FWLONG nNum);
+	/// Resets to the beginning of the enumeration sequence
+	HRESULT Reset();
+	/// Creates another enumerator that contains the same enumeration state as the current one
+	HRESULT Clone([out] IFWEnumParams **ppEnum);
+
+
+	/// Specialised version of IFWUnknown::Error which provides a more detailed message for errors generated by QueryXxxx functions
+	HRESULT ErrorEx(FWSTRING pSrcFile, FWULONG nSrcLine, HRESULT h);
+};
+
+
+
+//@}

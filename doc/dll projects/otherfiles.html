@@ -1,0 +1,90 @@
+<html>
+	<head>
+		<title>FREE WILL+ How to create a DLL subproject</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=windows-1250">
+	</head>
+	<body>
+		<font face="Arial">
+			<h1>FREE WILL+ Coding Standards</h1>
+			<h2><em>&lt;prjname&gt;</em>.idl File for a DLL subproject</h2>
+			<p><font face="Courier New" size="2" color=#000000><font color="#0000ff">import </font>"interface1.idl";</font>
+			</p>
+<p><font face="Courier New" size="2" color=#000000>[ <br>&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">uuid</font> 
+(BCB9FC17-749F-436b-95BE-AF267522478F), <br>&nbsp;&nbsp;&nbsp; <font color="#0000ff">version</font> (1.0), 
+<br>&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">helpstring</font> ("TODO: write a help string here") <br>] 
+<br><font color="#0000ff">library 
+</font> PrjNameLib <br>{ <br>&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">importlib</font> ("stdole32.tlb"); 
+<br><br>&nbsp;&nbsp;&nbsp; [ <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">uuid</font> 
+(04F20AE5-51C5-4963-B97C-2FAEBCBC7DFF), 
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">helpstring</font> ("TODO: write a help 
+string here") <br>&nbsp;&nbsp;&nbsp; ] <br>&nbsp;&nbsp;&nbsp; <font color="#0000ff">coclass</font>  Class1 
+<br>&nbsp;&nbsp;&nbsp; { <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [<font 
+color="#0000ff">default</font>] <font color="#0000ff">interface</font> 
+  IInterface1; <br>&nbsp;&nbsp;&nbsp; 
+};&nbsp;<br>};</font></p>
+<p><font face="Courier New" color="#008000" size="2"></font>&nbsp;</p><font 
+face="Arial">
+<h2><em>&lt;interface1&gt;</em>.idl File for a DLL subproject</h2>
+<p><font face="Courier New" size="2" color=#000000><font color="#0000ff">import</font> "common.idl";</font></p>
+<p><font face="Courier New" size="2" color=#000000>[ <br>&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">object</font> 
+, <br>&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">uuid</font> (F477E2F1-E699-4cd6-9C58-6316653FD478), 
+<br>&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">helpstring</font> ("TODO: write a help string here"), 
+<br>&nbsp;&nbsp;&nbsp; <font 
+color="#0000ff">pointer_default</font>(<font color="#0000ff">unique</font> ) <br>] <br><font 
+color="#0000ff">interface</font> IInterface1 : 
+IFWillUnknown <br>{ <br>&nbsp;&nbsp;&nbsp; HRESULT fn(); <br>};</font></p>
+<p><font face="Courier New" color="#008000" size="2"></font>&nbsp;</p>
+<p><font face="Courier New" size="2"></font></font>
+		</font><font face="Courier New" size="2"><font face="Arial">
+<h2><em>&lt;class1&gt;</em>.h File for a DLL subproject</h2>
+<p><font face="Courier New" size="2"><font color="green">// class1.h <br>// 
+<br>///////////////////////////////////////////////////////////////////////////// 
+<br><br> </font><font color="#0000ff">#if 
+!defined<font color="#000000">(__CLASS1_H) </font>  <br>#define 
+<font color="#000000">__CLASS1_H </font>  <br><br>#if <font color="#000000">_MSC_VER &gt; 1000 </font>  
+  <br>#pragma once <br>#endif 
+</font></font><font face="Courier New" 
+size="2"><font color="green">// _MSC_VER &gt; 1000 </font></font></p>
+<p><font face="Courier New" size="2" color=#000000><font color="#0000ff">#include 
+</font> 
+"..\include\interface1.h" <br><font 
+face="Courier New" color="#000000" size="2"><font color="#0000ff">#include 
+</font></font> "..\fwcommon\factory.h" <br><font 
+face="Courier New" color="#000000" size="2"><font color="#0000ff">#include 
+</font></font>"..\fwcommon\fwunknown.h"</font></p>
+<p><font face="Courier New" size="2"><font 
+color="green">//////////////////////////////////////////////////////////////////////////////////////////////////// 
+<br>// CClass1 </font></font></p>
+<p><font face="Courier New" size="2"><font color="green"><font 
+color="#000000"><font color="#0000ff">class</font> CClass1 : <font 
+color="#0000ff">public</font>    
+FWILLUNKNOWN<iinterface1 IInterface1 IID_IInterface1,, IInterface1> <br>{&nbsp; 
+<br><font color="#0000ff">public</font>: <br>&nbsp;&nbsp;&nbsp; 
+<font color="#0000ff">virtual</font> HRESULT <font color="#0000ff">__stdcall 
+</font>     fn(); 
+<br><br>&nbsp;&nbsp;&nbsp; DECLARE_FACTORY_CLASS(Class1, Interface1) 
+<br>&nbsp;&nbsp;&nbsp; FWILL_RTTI(Class1) <br><br>&nbsp;&nbsp;&nbsp; CClass1() { 
+} <br>&nbsp;&nbsp;&nbsp; ~CClass1() { } <br>}; <br></font><font 
+color="#0000ff">#endif</font> </font></font></p>
+<p><font face="Courier New" color="#008000"></font>&nbsp;</p><font 
+face="Courier New" size="2"><font face="Arial">
+<h2><em>&lt;class1&gt;</em>.cpp File for a DLL subproject</h2>
+<p><font face="Courier New" size="2"><font color="green">// class1.cpp: 
+Implementtation for IInterface1 <br>// </font></font></p>
+<p><font face="Courier New" color="#000000" size="2"><font color="#0000ff">#include 
+</font>"stdafx.h" <br><font color="#0000ff">#include </font>"class1.h" </font></p>
+<p><font face="Courier New" color="#000000" size="2">HRESULT <font 
+color="#0000ff">__stdcall </font>CClass1::fn() <br>{ <br>&nbsp;&nbsp;&nbsp; 
+</font><font face="Courier New" color="#000000" size="2"><font 
+color="#0000ff">return</font> S_OK; <br>} </font><font face="Courier New" 
+size="2"></font></font></font></font></font></FONT></P>
+	</body>
+</html>

@@ -1,0 +1,419 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// \file 
+/// FreeWill+ Core Implementation Library IDL file
+
+import "common.idl";
+import "kineplus.idl";
+import "bodyplus.idl";
+import "meshplus.idl";
+import "matplus.idl";
+import "boundplus.idl";
+import "fileplus.idl";
+//import "actionplus.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup implementation_classes Implementation Classes
+/// This module contains implemnation of all core, platform-independent
+/// FreeWill+ classes.
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+// TYPE LIBRARY
+
+[
+	uuid(F35907EE-FC74-41a3-A022-2BBF2747DC59),
+	version(1.0),
+	helpstring("FreeWill+ Core Type Library")
+]
+library FreeWillPlus
+{
+	importlib("stdole32.tlb") ;
+
+	/// Standard implementation class for the system main Device (implements: IFWDevice)
+	/// @ingroup implementation_classes
+	/// This class is not very likely to be replaced in future extensions (see remarks below).
+	/// \remark
+	/// - Possible future replacements could change how the setup info is stored 
+	///	  (e.g. in XML files rather than Registry) or how the CLSID strings
+	///   are interpreted (e.g. DLL filenames instead of GUIDs).
+	/// - IFWDevice::Store currently not implemented.
+	/// - IFWDevice::Load sets up predefined values and currently does not read any external source of information.
+	/// - The target is to complete Load/Store functions so that to read/write in the system registry.
+	[
+		uuid(4DAC894C-75C0-4538-B83C-E0C99D70997B),
+		helpstring("FreeWill+ Main Device")
+	]
+	coclass FWDevice
+	{
+		[default] interface IFWDevice;
+		interface IFWUnknown;
+	};
+
+	/// Implementation class for matrix-based Transforms (implements: ITransform).
+	/// @ingroup implementation_classes
+	/// Implementation based on FWMATRIX16 matrices, with premultiplying and points represented by column vectors.
+	/// This class is likely to be replaced in future extensions (see remarks)
+	/// \remarks
+	/// - No support for hardware acceleration
+	/// - Platform-independent class
+	/// - ITransform::AsEuler and ITransform::Interpolate currently not implemented.
+	/// - ITransform::Inverse implemented for orthogonal matrices only.
+	/// - Possible future replacements: quaternion-based class, platform dependent class with support
+	///   for hardware-accelerated computations.
+	[
+		uuid(47E9504A-40D0-466a-979E-03173FF10401),
+		helpstring("TRANS+ Matrix Transformation")
+	]
+	coclass TransMatrix
+	{
+		[default] interface ITransform;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the Bone - the system's kinematics main building block (implements: IKineNode, IKineChild, IKineObj3D).
+	/// @ingroup implementation_classes
+	/// Provides the main link for the FreeWill+ kinematic chains, being the fully specified 3D object
+	/// (defined as a set of 3D transforms), capable to be put into the chierarchies as both a child
+	/// and a parent. This class is unlikely to be changed in the future extensions.
+	/// \sa \ref Obj3D, \ref KChain
+	/// \remarks
+	/// - IKineNode::AddChild automatically sets the caller as the Primary Parent and invalidates the child:
+	///   it calls IKineNode::AddChildEx(..., ..., TRUE, ..., ...)
+	[
+		uuid(EB59D9EE-8FB0-4e4f-935E-431F49D24BD9),
+		helpstring("KINE+ Bone 3D Object")
+	]
+	coclass KineBone
+	{
+		[default] interface IKineObj3D;
+		interface IKineNode;
+		interface IKineChild;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for a Body (implements: IBody)
+	/// @ingroup implementation_classes
+	/// This class provides an abstract layer to represent and quckly
+	/// acquire character body parts and information on them,
+	/// based on IBody interface.
+	/// This class supports CharacterStudio compatible characters.
+	/// New classes may be added to support various charcter models and definitions.
+	[
+		uuid(AC4363ED-3E64-432b-BFFD-DE88B6D084CC),
+		helpstring("BODY+ Body Model")
+	]
+	coclass Body
+	{
+		interface IBody;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the mesh (implements: IMesh, IKineChild)
+	/// \ingroup implementation_classes
+	/// This class implements mesh objects that can be added to the kinematical chains
+	/// as child nodes, but cannot be parents (no IKineNode interface)
+	/// This class is unlikely to be replaced in future extensions.
+	[
+		uuid(3DB360F6-D8F6-434b-9D21-B602B54682D2),
+		helpstring("MESH+ generic mesh")
+	]
+	coclass Mesh
+	{
+		[default] interface IMesh;
+		interface IKineChild;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the Mesh Dictionary object (implements: IMeshDictionary)
+	/// \ingroup implementation_classes
+	/// Simple tool class, unlikely to be replaced in future extensions.
+	[
+		uuid(B1FA17E5-2AC9-4de6-99B2-8CB2AF64C41E),
+		helpstring("MESH+ Bone Dictionary")
+	]
+	coclass MeshDictionary
+	{
+		[default] interface IMeshDictionary;
+		interface IFWUnknown;
+	};
+	
+	/// Standard implementation class for the Texture object
+	[
+		uuid(E1A5A790-59B9-45e3-8734-E094040B8DD8),
+		helpstring("MAT+ Texture")
+	]
+	coclass Texture
+	{
+		[default] interface ITexture;
+		interface IFWUnknown;
+	};	
+
+	/// Standard implementation class for the Material object
+	[
+		uuid(5F81AA83-E336-4023-B289-F9EF024F72EB),
+		helpstring("MAT+ Material")
+	]
+	coclass Material
+	{
+		[default] interface IMaterial;
+		interface IFWUnknown;
+	};	
+
+	/// Standard implementation class for the bounding volume (implements: IBounding, IKineChild, IKineObj3D)
+	/// \ingroup implementation_classes
+	/// This class implements AABB and OBB bounding volumes with conversion capability to spheres
+	/// (cylinders are also considered).
+	/// This class is unlikely to be replaced in future extensions, but new types of bounding volumes 
+	/// may be added by the users.
+	/// \remark IKineNode::CreateChild returns E_NOTIMPL error
+	[
+		uuid(4C2ECB44-7E2E-452b-8680-7AB9C9C08332),
+		helpstring("BOUND+ Oriented Bounding Box")
+	]
+	coclass BoundingBox
+	{
+		[default] interface IBounding;
+		interface IKineChild;
+		interface IKineObj3D;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the bounding volume (implements: IBounding, IKineChild, IKineObj3D)
+	/// \ingroup implementation_classes
+	/// This class implements Bounding Spheres with conversion capability to boxes
+	/// (cylinders are also considered). Sphere-Sphere and Sphere-OBB algorithms implemented.
+	/// This class is unlikely to be replaced in future extensions, but new types of bounding volumes 
+	/// may be added by the users.
+	/// \remark IKineNode::CreateChild returns E_NOTIMPL error
+	[
+		uuid(2EE40CB9-6B64-4f53-84E4-4483C399F153),
+		helpstring("BOUND+ Bounding Sphere")
+	]
+	coclass BoundingSphere
+	{
+		[default] interface IBounding;
+		interface IKineChild;
+		interface IKineObj3D;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the Scene Meshed Object (implements: ISceneObject, ISceneRenderee, IKineNode, IKineChild, IKineObj3D)
+	/// @ingroup implementation_classes
+	/// This class may be treated as a bone (\ref KineBone) with extra ability
+	/// to host meshes and to render single and multi-meshed characters, also with
+	/// with vertex blending. This class is unlikely to be replaced in future extensions.
+	/// \remark ISceneRenderee::IsReady tests if the object has been properly initialised
+	/// with Vertex and Face Buffers (see ISceneObject::PutBuffers)
+	/// \remark ISceneRenderee::PutRenderHint does nothing and returns S_FALSE.
+	/// \remark ISceneRenderee::NeedsRendering checks Ready and Visible flags only.
+	/// \remark ISceneRenderee::GetRenderOrdinal returns 200 (meshed object).
+	/// \remark IKineNode::CreateChild creates a IFreeWillPlus::KineBone object.
+	[
+		uuid(174BB3E2-1AC1-4f5c-AAC7-F3057A3D157C),
+		helpstring("SCENE+ Meshed Object")
+	]
+	coclass SceneObject
+	{
+		[default] interface ISceneObject;
+		interface ISceneRenderee;
+		interface IKineNode;
+		interface IKineChild;
+		interface IKineObj3D;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the Scene Point Light (implements: ISceneLightPoint, ISceneLight, ISceneRenderee, IKineNode, IKineChild, IKineObj3D)
+	/// @ingroup implementation_classes
+	/// This class may be treated as a bone (\ref KineBone) with extra ability
+	/// to host render the light source.
+	/// This class is unlikely to be replaced in future extensions.
+	/// \remark ISceneRenderee::IsReady tests if ISceneLightPoint::Cresate has been called.
+	/// \remark ISceneRenderee::NeedsRendering checks Ready and Visibility flags and also an internal flag
+	/// set when the object is invalidated (IKineObj3D::Invalidate). 
+	/// This flag may be set directly with ISceneRenderee::PutRenderHint.
+	/// \remark ISceneRenderee::GetRenderOrdinal returns 20 (set-up object).
+	/// \remark IKineNode::CreateChild creates a IFreeWillPlus::KineBone object.
+	[
+		uuid(992F65B0-BAD3-446c-8C76-B0A9EEE10091),
+		helpstring("SCENE+ Point Light")
+	]
+	coclass SceneLightPoint
+	{
+		[default] interface ISceneLightPoint;
+		interface ISceneLight;
+		interface ISceneRenderee;
+		interface IKineNode;
+		interface IKineChild;
+		interface IKineObj3D;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the Scene Directional Light (implements: ISceneLightDir, ISceneLight, ISceneRenderee, IKineTargetedObj, IKineNode, IKineChild, IKineObj3D)
+	/// @ingroup implementation_classes
+	/// This class may be treated as a bone (\ref KineBone) with extra ability
+	/// to host render the light source.
+	/// Use IKineTargetedObj functionality for fine tuning the position of the light.
+	/// This class is unlikely to be replaced in future extensions.
+	/// \remark ISceneRenderee::IsReady tests if ISceneLightDir::Create has been called.
+	/// \remark ISceneRenderee::NeedsRendering checks Ready and Visibility flags and also an internal flag
+	/// set when the object or its target is invalidated (IKineObj3D::Invalidate). 
+	/// This flag may be set directly with ISceneRenderee::PutRenderHint.
+	/// \remark ISceneRenderee::GetRenderOrdinal returns 20 (set-up object).
+	/// \remark IKineNode::CreateChild creates a IFreeWillPlus::KineBone object.
+	[
+		uuid(8416A955-5851-4288-BDDB-C5DDF03B110C),
+		helpstring("SCENE+ Directional Light")
+	]
+	coclass SceneLightDir
+	{
+		[default] interface ISceneLightDir;
+		interface ISceneLight;
+		interface ISceneRenderee;
+		interface IKineTargetedObj;
+		interface IKineNode;
+		interface IKineChild;
+		interface IKineObj3D;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the Scene Spot Light (implements: ISceneLightSpot, ISceneLight, ISceneRenderee, IKineTargetedObj, IKineNode, IKineChild, IKineObj3D)
+	/// @ingroup implementation_classes
+	/// This class may be treated as a bone (\ref KineBone) with extra ability
+	/// to host render the light source.
+	/// Use IKineTargetedObj functionality for fine tuning the position of the light.
+	/// This class is unlikely to be replaced in future extensions.
+	/// \remark ISceneRenderee::IsReady tests if ISceneLightSpot::Create has been called.
+	/// \remark ISceneRenderee::NeedsRendering checks Ready and Visibility flags and also an internal flag
+	/// set when the object or its target is invalidated (IKineObj3D::Invalidate). 
+	/// This flag may be set directly with ISceneRenderee::PutRenderHint.
+	/// \remark ISceneRenderee::GetRenderOrdinal returns 20 (set-up object).
+	/// \remark IKineNode::CreateChild creates a IFreeWillPlus::KineBone object.
+	[
+		uuid(89CCBE0B-6507-46c8-9BDE-B18C80F5A177),
+		helpstring("SCENE+ Spot Light")
+	]
+	coclass SceneLightSpot
+	{
+		[default] interface ISceneLightSpot;
+		interface ISceneLight;
+		interface ISceneRenderee;
+		interface IKineTargetedObj;
+		interface IKineNode;
+		interface IKineChild;
+		interface IKineObj3D;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the Scene Camera (implements: ISceneCamera, ISceneRenderee, IKineTargetedObj, IKineNode, IKineChild, IKineObj3D)
+	/// @ingroup implementation_classes
+	/// This class may be treated as a bone (\ref KineBone) with extra ability
+	/// to control the scene camera.
+	/// Use IKineTargetedObj functionality for fine tuning the position of the camera.
+	/// This class is unlikely to be replaced in future extensions.
+	/// \remark ISceneRenderee::IsReady tests if ISceneCamera::Create has been called
+	/// \remark ISceneRenderee::IsVisible is TRUE for only one camera; ISceneRenderee::PutVisible{TRUE) desactivated the previously
+	///   active camera; ISceneRenderee::PutVisible{FALSE) does nothing (you cannot just switch a camera off)
+	/// \remark ISceneRenderee::NeedsRendering checks Ready and Visibility flags and also an internal flag
+	/// set when the object or its target is invalidated (IKineObj3D::Invalidate). 
+	/// This flag may be set directly with ISceneRenderee::PutRenderHint.
+	/// \remark ISceneRenderee::GetRenderOrdinal returns 20 (set-up object).
+	/// \remark IKineNode::CreateChild creates a IFreeWillPlus::KineBone object.
+	[
+		uuid(DA0F8739-5B25-4e39-9FA5-E85C44DEBF78),
+		helpstring("SCENE+ Camera")
+	]
+	coclass SceneCamera
+	{
+		[default] interface ISceneCamera;
+		interface ISceneRenderee;
+		interface IKineTargetedObj;
+		interface IKineNode;
+		interface IKineChild;
+		interface IKineObj3D;
+		interface IFWUnknown;
+	};
+
+	/// Standard implementation class for the Animation Scene (implements: IScene, ISceneRenderee, IKineNode, IKineChild, IKineObj3D)
+	/// @ingroup implementation_classes
+	/// This class supplies the top-level kinematical link and
+	/// may be treated as the root bone (\ref KineBone) that hosts
+	/// all the objects capable to take part in rendering.
+	/// This class is unlikely to be replaced in future extensions.
+	/// \remark ISceneRenderee::IsReady tests if the object has been properly initialised
+	/// with Vertex and Face Buffers (see IScene::PutBuffers)
+	/// \remark ISceneRenderee::PutRenderHint does nothing and returns S_FALSE.
+	/// \remark ISceneRenderee::NeedsRendering checks for ready & visibility flags only
+	/// \remark ISceneRenderee::GetRenderOrdinal returns 0 (no meaning).
+	/// \remark IKineNode::CreateChild does the same as IScene::AddObject
+	[
+		uuid(0030CA78-E705-4cd2-9651-1997CCCD659F),
+		helpstring("SCENE+ Animation Scene")
+	]
+	coclass Scene
+	{
+		[default] interface IScene;
+		interface ISceneRenderee;
+		interface IKineNode;
+		interface IKineChild;
+		interface IKineObj3D;
+		interface IFWUnknown;
+	};
+
+	/// Implementation class for the File Loader for '3D' file format (implements: IFileLoader, IFileSink)
+	/// @ingroup implementation_classes
+	/// This class is likely to remain unchanged as long as '3D' file format is used.
+	/// \remarks
+	/// - It is planned to support XML version of '3D' file format in near future.
+	/// - Implements IFileLoader to provide easy-to-use interface for loading FreeWill+ object
+	/// - Implements also IFileSink to provide the data sink for the input file used to load objects
+	[
+		uuid(D012821E-0081-4d4f-A512-2E9A1B8E44C3),
+		helpstring("FILE+ File Loader and Input Sink")
+	]
+	coclass FileLoader
+	{
+		[default] interface IFileLoader;
+		interface IFileSink;
+		interface IFWUnknown;
+	};
+
+	/// Implementation class for the Input File (implements: IFileIn)
+	/// @ingroup implementation_classes
+	/// This class is likely to remain unchanged as long as '3D' file format is used.
+	/// Implements input files of both 3D and XML formats
+	[
+		uuid(54A6EC34-879A-4250-BE64-2AABD2E36950),
+		helpstring("FILE+ Standard 3D/XML Input File")
+	]
+	coclass StdFileIn
+	{
+		[default] interface IFileIn;
+		interface IFWUnknown;
+	};
+
+	///// Implementation class for the Action Verb (implements: IActionVerb)
+	///// @ingroup implementation_classes
+	///// This class is unlikely to be reimplemented.
+	//[
+	//	uuid(0555EC5A-93A9-4019-B4F5-241317BEE8A8),
+	//	helpstring("ACTION+ Action Verb")
+	//]
+	//coclass ActionVerb
+	//{
+	//	[default] interface IActionVerb;
+	//};
+
+	///// Implementation class for the Generic Action (implements: IAction)
+	///// @ingroup implementation_classes
+	///// This is generic class only and it will be often reimplemented
+	///// and used for containment
+	//[
+	//	uuid(212122F6-0554-48e8-8903-69A146EFFF40),
+	//	helpstring("ACTION+ Generic Action")
+	//]
+	//coclass Action
+	//{
+	//	[default] interface IAction;
+	//};
+};

@@ -1,0 +1,168 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// RNDR+ IDL file
+/// \file 
+/// Generic Renderer; see \ref rndrplus
+
+import "meshplus.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup rndrplus RNDR+ Module
+/// The Generic Renderer
+///
+/// The FreeWill+ Module does not define the exact specification for the Renderer object.
+/// Instead, just the minimin requirements are specified in a IRndrGeneric interface,
+/// along with necessary auxiliary data structures. The functionality provided here
+/// is used exclusively by SCENE+ objects (see \ref sceneplus) to pass the rendering
+/// data to the Renderer. The tools to create platform-dependent vertex and face buffers
+/// are also declared here.
+///
+/// The Renderer, as the highly platform-dependent object, is defined outside FreeWill+.
+/// However the \ref fwrender, an implementation for MS DirectX 9.0, provides the
+/// IRenderer interface (inherited after IRndrGeneric) that is enough generic to
+/// support other hardware platforms as well. Developers of new renderers are therefore
+/// strongly recommended to use it as the basis for their efforts.
+///
+/// \section rendimpl Implementation Remarks
+/// This is strictly platform-dependent stuff and no implementation is included in 
+/// the FreeWill+ Module. See \ref fwrender for the external implementation unit.
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Assumption:
+// all [in], [in, out] and [out, retval] pointers must be valid: the implementation has no need to validate them
+// all [out] pointers may be NULL pointers: the implementation must not assign any values in such case
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// LIST OF INTERFACES
+
+interface IRndrGeneric;
+struct RNDR_MESHEDOBJ;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+// INTERFACE DEFINITIONS
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup rndrplus
+/// @name RENDER+ Module-Specific Error Codes
+/// Error codes used by classes in this module only
+enum REND_ERRORS
+{
+	REND_E_PLATFORM = FW_E_CLASS_ERRORS,	///< Renderer platform error
+	REND_E_PLATFORM_EX,						///< Renderer platform error: %s
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup rndrplus
+/// \struct RNDR_MESHEDOBJ
+/// Meshed Object Information Structure.
+///
+/// Encapsulates the information necessary to render a mesh spread on a set of bones.
+/// It is submitted by the ISceneObject, ISceneRenderee::Render function, to the IRndrGeneric.
+/// \sa ISceneRenderee::Render and IRndrGeneric::RenderMesh
+//////////////////////////////////////////////////////////////////////////////////////////
+struct RNDR_MESHEDOBJ
+{
+	/// @name Mesh & Submesh (index & total number)
+	FWULONG iMesh;		///< current index of the mesh
+	FWULONG nMesh;		///< total count of meshes
+	FWULONG iSubmesh;		///< current index of the submesh
+	FWULONG nSubmesh;		///< total count of submeshes
+
+	/// @name Object Instances
+	IMesh *pMesh;						///< IMesh instance (rather rarely used at the rendering stage)
+	IMeshVertexBuffer *pVertexBuffer;	///< The IMeshVertexBuffer Vertex Buffer
+	IMeshFaceBuffer *pFaceBuffer;		///< The IMeshFaceBuffer Face Buffer
+
+	/// @name Buffer Subranges used for the Current (Sub)Mesh
+	FWULONG nVertexSize;	///< the vertex size for the current mesh
+	FWULONG nVertexFirst; ///< index of the first vertex in the current mesh and submesh
+	FWULONG nVertexNum;	///< number of vertices in the current mesh and submesh
+	FWULONG nFaceSize;	///< the face size for the current mesh
+	FWULONG nFaceFirst;	///< index of the first face in the current mesh and submesh
+	FWULONG nFaceNum;		///< number of faces in the current mesh and submesh
+
+	/// @name List of Bone Transformations
+	FWULONG nMatrixNum;								///< Total number of transformations
+	[size_is(nMatrixNum)] FWMATRIX *pMatrices;		///< Array of transformations
+	FWULONG nIndexNum;								///< Total number of transformations used in the current (sub)mesh
+	[size_is(nIndexNum)] FWULONG *pTransformIndices;	///< Array of indices to pMatrices used in the current (sub)mesh
+
+	FWULONG nReserved;								///< Reserved for the internal implementation
+	BYTE *pReserved;								///< Reserved for the internal implementation
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup rndrplus
+/// \interface IRndrGeneric
+/// The Generic Renderer.
+///
+/// The generic renderer with minimal functionality necessary to render SCENE+ objects.
+/// \sa IRenderer - a fully functional renderer interface.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(30D1CBA6-37EF-4d60-9475-D4C79D147AD7),
+	helpstring("FreeWill+ Generic Renderer"),
+	pointer_default(unique)
+]
+interface IRndrGeneric : IFWUnknown
+{
+	/// @name Device-Compatible Buffers
+	/// These functions provide the device-compatible IMeshVertexBuffer and IMeshFaceBuffer buffers.
+	/// \remarks
+	/// - This should be the only way in which the objects of these classes are constructed.
+	/// - You are required to perform second-stage creation (see IMeshVertexBuffer::Create and IMeshFaceBuffer::Create).
+	/// - You are not required to call CreateBuffers prior to GetBuffers, the latter will create them if necessary
+	/// - Subsequent calls to GetBuffers will return the same objects, call CreateBuffers to re-create them
+	HRESULT GetBuffers([out] IMeshVertexBuffer**, [out] IMeshFaceBuffer**);	///< Provides device-compatible buffers; creates new if necessary
+	HRESULT CreateBuffers(BOOL bVertexBuf, BOOL bFaceBuf);	///< Replaces requested buffers with the new ones
+
+	/// @name Display and Viewport Information
+	HRESULT GetTargetSize(FWULONG *pX, FWULONG *pY);			///< Returns the size of the current target rendering device, which may be window, full screen or offscreen buffer
+	HRESULT GetBackBufferSize(FWULONG *pX, FWULONG *pY);		///< Returns the size of the current back buffer
+	HRESULT GetViewSize(FWULONG *pX, FWULONG *pY);				///< Deprecated, use GetTargetSize instead
+	
+	/// Returns current viewport position and size, in the backbuffer coordinates (the actual viewport is rescaled to fit the currently used display)
+	HRESULT GetViewport([out] FWULONG *pX, [out] FWULONG *pY, [out] FWULONG *pWidth, [out] FWULONG *pHeight);
+	/// Returns current viewport position and size, in the target device coordinates
+	HRESULT GetTargetViewport([out] FWULONG *pX, [out] FWULONG *pY, [out] FWULONG *pWidth, [out] FWULONG *pHeight);
+
+	HRESULT GetAspectRatio(FWFLOAT*);							///< returns the aspect ratio of the target viewport
+
+	/// Sets viewport data (\b more).
+	/// Sets position and size of the viewport using the back buffer coordinate system.
+	/// Use fX, fY, fWidth abd fHeight to define the viewport as a fraction of entire buffer.
+	/// Use nX, nY, nWidth and nHeight to add an extra offset in pixels.
+	/// Example: PutViewport(0.5, 0, 0.5, 0.5, 5, 5, -10, -10) 
+	/// creates a viewport in upper-right quarter of the back buffer, with a frame 5-pixel wide along all four edges
+	HRESULT PutViewport(FWFLOAT fX, FWFLOAT fY, FWFLOAT fWidth, FWFLOAT fHeight, FWLONG nX, FWLONG nY, FWLONG nWidth, FWLONG nHeight);
+	/// Sets viewport data using target display coordinates rather than back buffer (see IRndrGeneric::PutViewport)
+	HRESULT PutTargetViewport(FWFLOAT fX, FWFLOAT fY, FWFLOAT fWidth, FWFLOAT fHeight, FWLONG nX, FWLONG nY, FWLONG nWidth, FWLONG nHeight);
+
+	/// @name Rendering
+	HRESULT GetResetFlag([out, retval] BOOL *bReset);	///< returns true after the device reset - enforces cameras, lights etc. to render
+
+	/// @name Rendering
+	HRESULT RenderMesh(struct RNDR_MESHEDOBJ *);	///< Renders the mesh data provided by ISceneObject (see ISceneRenderee::Render, RNDR_MESHEDOBJ)
+
+	/// @name The Lighting
+	HRESULT SetLight(FWULONG iIndex, BOOL bOn);
+	HRESULT GetLight(FWULONG iIndex);
+	HRESULT SetPointLight(FWULONG iIndex, FWCOLOR clrDiff, FWCOLOR clrSpec, FWCOLOR clrAmb, FWVECTOR *pPos, FWFLOAT fRange, FWFLOAT fAtten0, FWFLOAT fAtten1, FWFLOAT fAtten2);
+	HRESULT SetDirLight(FWULONG iIndex, FWCOLOR clrDiff, FWCOLOR clrSpec, FWCOLOR clrAmb, FWVECTOR *pDir);
+	HRESULT SetSpotLight(FWULONG iIndex, FWCOLOR clrDiff, FWCOLOR clrSpec, FWCOLOR clrAmb, FWVECTOR *pPos, FWVECTOR *pDir, FWFLOAT fTheta, FWFLOAT fPhi, FWFLOAT fFalloff);
+	HRESULT SetAmbientLight(FWCOLOR clrAmb);
+
+	/// @name View and Projection Transforms (Camera Rendering)
+	HRESULT GetViewTransform([out, retval] ITransform **pVal);			///< Gets the view transformation
+	HRESULT PutViewTransform([in] ITransform *newVal);					///< Puts the view transformation
+	HRESULT GetProjectionTransform([out, retval] ITransform **pVal);	///< Gets the projection transformation
+	HRESULT PutProjectionTransform([in] ITransform *newVal);			///< Puts the projection transformation
+	
+	
+	HRESULT CreateTexture([out, retval] ITexture** ppTexture);
+};
+
+//@}

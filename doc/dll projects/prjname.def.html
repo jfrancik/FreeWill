@@ -1,0 +1,21 @@
+<html>
+	<head>
+		<title>FREE WILL+ How to create a DLL subproject</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=windows-1250">
+	</head>
+	<body>
+		<font face="Arial">
+			<H1>FREE WILL+ Coding Standards</H1>
+			<H2><EM>&lt;prjname&gt;</EM>.def File for a DLL subproject</H2>
+			<P><FONT face="Courier New" size="2"> LIBRARY <EM><FONT color="red"><STRONG>prjname</STRONG></FONT></EM>
+					<BR>
+					EXPORTS<br>
+					&nbsp;&nbsp;&nbsp; DllGetClassObject PRIVATE<br>
+					&nbsp;&nbsp;&nbsp; DllCanUnloadNow PRIVATE<br>
+					&nbsp;&nbsp;&nbsp; DllRegisterServer PRIVATE<br>
+					&nbsp;&nbsp;&nbsp; DllUnregisterServer PRIVATE<br>
+				</FONT>
+			</P>
+		</font>
+	</body>
+</html>

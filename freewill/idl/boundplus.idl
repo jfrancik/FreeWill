@@ -1,0 +1,215 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// BOUND++ IDL file
+/// \file 
+/// Collision Detection with Bounding Volumes
+
+import "common.idl"; 
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup boundplus BOUND+ Module
+/// Collision Detection with Bounding Volumes
+///
+/// This module provides bounding volumes that are used to detect collisions between 3D objects
+///
+/// BOUND+ contains a number of structures that define various types (formats) of bounding volumes, like:
+/// - axis aligned bounding boxes (AABB)
+/// - oriented bounding boxes (OBB)
+/// - bounding spheres
+/// - bounding cylinders
+/// - meshes (triangle-based collision detection)
+///
+/// The IBounding interface 
+///
+/// \section BoundImpl Implementation Remarks
+/// The implementation of Bounding Volumes is platform-independent and unlikely to be replaced 
+/// in the future extensions, see FreeWillPlus::Bounding
+//////////////////////////////////////////////////////////////////////////////////////////
+
+struct BOUND_AABB;
+struct BOUND_OBB;
+struct BOUND_OBB_8;
+struct BOUND_SPHERE;
+struct BOUND_CYLINDER;
+interface IBounding;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup boundplus
+/// @name Bounding Volume Formats
+/// Identifies various formats of bounding volumes
+enum BOUND_FORMAT
+{
+	BOUND_FORMAT_AABB,					///< Axis Aligned Bounding Box
+	BOUND_FORMAT_OBB,					///< Oriented Bounding Box - box size (A x B x C) + transform
+	BOUND_FORMAT_OBB_8,					///< Oriented Bounding Box, all tops given explicitly
+	BOUND_FORMAT_SPHERE,				///< Bounding Sphere
+	BOUND_FORMAT_CYLINDER,				///< Bounding Cylinder
+	BOUND_FORMAT_MESH,					///< Mesh-based bounding volume
+	BOUND_FORMAT_RESERVED = 0xff,		///< 0x00 .. 0xFF are system-reserved values
+	BOUND_FORMAT_CUSTOM = 0x7fffffff,	///< Custom bounding volume
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup boundplus
+/// @name Bounding Volume Preference
+/// Describes how much the format is prefered (supported)
+enum BOUND_PREFERENCE
+{
+	BOUND_PREF_UNSUPPORTED,	///< Unsupported or unknown format
+	BOUND_PREF_ACCEPTED,	///< Accepted but not prefered (eg. lossy convertion involved)
+	BOUND_PREF_SUPPORTED,	///< Supported (prefered) format
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup boundplus
+/// @name Bounding Volume Precision
+/// Describes how precise the collision detection algorithm reflects the underlying 3d shape
+enum BOUND_PRECISION
+{
+	BOUND_PREC_LOOSE,	///< loose binding, eg. AABB, sphere
+	BOUND_PREC_TIGHT,	///< tight binding, eg. OBB
+	BOUND_PREC_TREE,	///< tree-based hierarchical algorithm
+	BOUND_PREC_FITTED,	///< well fitted bounding volume, eg. sphere for spherical objects
+	BOUND_PREC_MESH,	///< mesh-based algorithm
+};
+
+/// \ingroup boundplus
+/// \struct BOUND_AABB
+/// Definition of a Bounding Volume: Axis-Aligned Bounding Box.
+//////////////////////////////////////////////////////////////////////////////////////////
+struct BOUND_AABB
+{
+	/// Minimal co-ordinates for the axis-aligned box
+	FWVECTOR vecMin;
+	/// Maximal co-ordinates for the axis-aligned box
+	FWVECTOR vecMax;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup boundplus
+/// \struct BOUND_OBB
+/// Definition of a Bounding Volume: Oriented Bounding Box.
+/// Contains the size of the bounding box and a transform
+/// required for placing it in the space. The tops of
+/// actual box are given as
+/// (+/- vecSize.x, +/- vecSize.y, +/- vecSize.z)
+/// transformed with M matrix.
+/// \sa BOUND_OBB_8.
+//////////////////////////////////////////////////////////////////////////////////////////
+struct BOUND_OBB
+{
+	/// Size vector: each co-ordinate reflects 1/2 of the appropriate box dimension;
+	/// the box before transformation is defined as (+/- vecSize.x, +/- vecSize.y, +/- vecSize.z)
+	FWVECTOR vecSize;
+	/// Transformation for the tops of the box
+	FWMATRIX M;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup boundplus
+/// \struct BOUND_OBB_8
+/// Definition of a Bounding Volume: Oriented Bounding Box.
+/// Contains explicit co-ordinates of all 8 tops in order:
+/// from lower to upper, from near to far, from left to right.
+/// This format is sometimes convenient as output,
+/// but requires additional verification as input
+/// (the current implementation does not accept this format as input).
+/// \sa BOUND_OBB.
+//////////////////////////////////////////////////////////////////////////////////////////
+struct BOUND_OBB_8
+{
+	/// Co-ordinates of the box tops.
+	/// - OBB[0] = near lower left
+	/// - OBB[1] = near lower right
+	/// - OBB[2] = far  lower left
+	/// - OBB[3] = far  lower right
+	/// - OBB[4] = near upper left
+	/// - OBB[5] = near upper right
+	/// - OBB[6] = far  upper left
+	/// - OBB[7] = far  upper right
+	FWVECTOR OBB[8];
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup boundplus
+/// \struct BOUND_SPHERE
+/// Definition of a Bounding Volume: Axis-Aligned Bounding Box.
+//////////////////////////////////////////////////////////////////////////////////////////
+struct BOUND_SPHERE
+{
+	/// The centre of the sphere
+	FWVECTOR vecCenter;
+	/// Radius
+	FWFLOAT fRadius;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup boundplus
+/// \struct BOUND_CYLINDER
+/// Definition of a Bounding Volume: Axis-Aligned Bounding Box.
+//////////////////////////////////////////////////////////////////////////////////////////
+struct BOUND_CYLINDER
+{
+	/// Pivot end
+	FWVECTOR vecPivot1, vecPivot2;
+	/// Radius
+	FWFLOAT fRadius;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+// INTERFACE DEFINITIONS
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup boundplus
+/// \interface IBounding
+/// BOUND+ Bounding Volume
+///
+/// The Bounding Volume. 
+/// - May support more than one bounding volume format.
+/// - Use Query functions to determine which formats are supported.
+/// - Use the \ref Detect function to do the actual collision test.
+/// - For hierarchical algorithms like OBBTree the \ref GetSubBoundings function is provided.
+/// 
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(71DBB9E4-B5DE-40cb-B15E-81BD7A0D010B),
+	helpstring("MESH+ generic buffer)"),
+	pointer_default(unique)
+]
+interface IBounding : IFWUnknown
+{
+	/// @name Data Transfer
+	
+	/// Puts the Volume Bounding definition in a given format, FW_E_FORMAT if format not supported
+	HRESULT PutData(enum BOUND_FORMAT nFormat, FWULONG nSize, [in, size_is(nSize)] BYTE *pBuf);
+	/// Returns the Volume Bounding definition in a given format, FW_E_FORMAT if format not supported
+	HRESULT GetData(enum BOUND_FORMAT nFormat, FWULONG nSize, [out, size_is(nSize)] BYTE *pBuf);
+
+	/// @name Supported Format Queries
+
+	/// Query the PutData format; returns preference for the given format (S_FALSE in case of BOUND_UNSUPPORTED)
+	HRESULT QueryInputFormat(enum BOUND_FORMAT, [out, retval] enum BOUND_PREFERENCE*);
+	/// Query the GetData format; returns preference for the given format (S_FALSE in case of BOUND_UNSUPPORTED)
+	HRESULT QueryOutputFormat(enum BOUND_FORMAT, [out, retval] enum BOUND_PREFERENCE*);
+	/// like \ref QueryInputFormat: enables multiple results
+	HRESULT QueryInputFormatEx(FWULONG nLen, [in, size_is(nLen)] enum BOUND_FORMAT*, [out, size_is(nLen)] enum BOUND_PREFERENCE*);
+	/// like \ref QueryOutputFormat: enables multiple results
+	HRESULT QueryOutputFormatEx(FWULONG nLen, [in, size_is(nLen)] enum BOUND_FORMAT*, [out, size_is(nLen)] enum BOUND_PREFERENCE*);
+	/// Query the overall Collision Detection Quality (Precision and Preference)
+	HRESULT QueryDetect(IBounding *pWith, [out] enum BOUND_FORMAT*, [out] enum BOUND_PREFERENCE*, [out] enum BOUND_PRECISION*);
+
+	/// @name Collision Detection Test
+
+	/// Detects a collision with pWith using the given format; returns S_FALSE if collision detected; FW_E_FORMAT if format not supported
+	HRESULT DetectEx(IBounding *pWith, enum BOUND_FORMAT fmt);
+	/// Detects a collision; uses \ref QueryDetect to find the optimal format; returns S_FALSE if collision detected; S_OK otherwise; FW_E_FORMAT if detection not possible
+	HRESULT Detect(IBounding *pWith);
+
+	/// @name Sub-Boundings (with Hierarchical Tree Algorithms only)
+	HRESULT GetSubBoundings([in, out] FWULONG *nSize, [out, size_is(*nSize)] IBounding**);	///< Returns 2 or more subdivided volumes
+};
+
+//@}

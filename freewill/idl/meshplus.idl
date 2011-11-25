@@ -1,0 +1,642 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// MESH+ IDL file
+/// \file 
+/// Abstract layer for the Meshes; see \ref meshplus
+
+import "transplus.idl";
+import "matplus.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup meshplus MESH+ Module
+/// An abstract layer for the Meshes:
+///
+/// - IMesh objects are used to create 3D animated meshes,
+/// constructed of a number of vertices and faces.
+/// - The IMeshBuffer and its derivatives, IMeshVertexBuffer and IMeshFaceBuffer,
+/// provide underlying hardware buffers.
+/// - IMeshDictionary object used for mapping bone names to indices
+///
+/// \remark
+/// The most common situation is when you load a Scene or a Scene Meshed Object from a file
+/// (see IFileLoader::LoadScene, IFileLoader::LoadObject). All the needed meshes will be then 
+/// created and initialised automatically. 
+///
+/// \section BufSection Buffer Creation and Usage
+/// Buffers (IMeshVertexBuffer and IMeshFaceBuffer specialised interfaces) provide indispensable
+/// link for the Meshes to the underlying low-level systems (eg. DirectX, OGL). 
+/// They are highly platform-dependent components and therefore are implemented in RENDER+ module 
+/// (see FWRender::MeshDX9VertexBuffer and FWRender::MeshDX9FaceBuffer). 
+/// They should never be created directly. Instead, use IRndrGeneric::GetVertexBuffer 
+/// and IRndrGeneric::GetFaceBuffer functions that create them. The creation process is two-stage, 
+/// and must involve further call to IMeshVertexBuffer::Create and IMeshFaceBuffer::Create, respectively.
+/// \remark The actual data format of the created buffers may differ from what was requested,
+/// depending on the local system capabilities. Call IMeshVertexBuffer::GetFormat or
+/// IMeshFaceBuffer::GetFormat to verify the actual format.
+///
+/// Once the buffer is created, any low-level operations should be preceded with a call to 
+/// IMeshBuffer::Open and terminated with a call to IMeshBuffer::Close. Putting or modifying 
+/// the buffer raw data is generally the user's responsibility and should be done using 
+/// the pointer got during opening, however in the IMesh interface one can find
+/// a bundle of usefull facility functions.
+/// \remark When acting with the beuufer data directly, use IMeshVertexBuffer::GetFormat,
+/// IMeshVertexBuffer::GetCaps and IMeshFaceBuffer::GetFormat to determine the data layout.
+///
+/// \section MeshSection The Mesh Object (IMesh)
+/// The IMesh objects together with a kinematical skeleton (KinePlus::KineBone) are put together
+/// into a ISceneObject object to form a fully functional object ready for rendering.
+/// Most often you will create IMesh objects with a ISceneObject::NewMesh facility function.
+/// In case you create mesh on your own call ISceneObject::AddMesh to include the mesh
+/// into the Scene Meshed Object and to initialise it accordingly.
+///
+/// The IMesh object needs to be initialised with IMeshVertexBuffer and IMeshFaceBuffer buffers
+/// as well as IMeshDictionary, however both ISceneObject::NewMesh and ISceneObject::AddMesh functions
+/// will do this initialisation for you.
+///
+/// The IMesh usage involves opening the raw data with IMesh::Open, filling the data and closing the buffers
+/// with IMesh::Close. For filling the data, a broad range of format-independent
+/// easy-to-use functions is provided. Alternatively (faster!) you can set data directly 
+/// in the buffer bytes (see \ref BufSection). 
+///
+/// \subsection MeshGen General Data Support
+/// General Data Support (GDS) is a set of functions that allow quick and easy setting 
+/// the xyz, colouring, point size and texture attributes for vertices as well as 
+/// index triples for faces without bothering with the actual buffer format. 
+/// Call IMesh::Open before use.
+/// \sa IMesh::SetVertexXYZ and following functions.
+///
+/// \subsection MeshNor Normal Vector Support
+/// Normal Vector Support (NVS) allows setting the normal vectors for vertices; an important facility
+/// is that two or more normals per vector are allowed. This usually happens when a vertex 
+/// is shared by two or more neighbouring smoothing areas, and forms a part of a 3d edge.
+/// It is essential to notice that a completely separate copy of a vertex (a clone) is
+/// created in the vertex buffer for each separate value of the normal vector. Therefore
+/// the vertex index may be changed during the IMesh::AddNormal call, and consequently
+/// it has been defined as an [in, out] param. When storing vertex indices 
+/// as triangle definitions in the face buffer it is critical to call AddNormal first 
+/// so that to use the appropriate clone, i.e. with the normal value used in the given
+/// face and the smoothing area. Notice, that several calls for the same vertex/normal pair
+/// will not lead to any redundant data.
+/// \remark
+/// - To start using the NVS functionality, first call IMesh::SupportNormal
+/// - Then use IMesh::AddNormal to store normals.
+/// - NVS may allocate large temporary data structures (created by SupportBlendWeight, released by Close)
+/// - As use of NVS clones some vertices, it will lead to increasing the length of the
+/// used vertex buffer (IMesh::GetVertexNum), and occasionally may cause the 
+/// \ref FW_E_MEMOVERRUN error.
+///
+/// \subsection MeshVer Vertex Blending Support
+/// Vertex Blending Support (VBS) enables use of a single mesh spread on a number of bones.
+/// Vertices of such mesh may be controlled by two or more bones (blended control), 
+/// with a weight assigned to each bone. You simply pass a set of bone weight/bone name pairs
+/// for each vertex, and VBS will translate the bone names to unique indices/ids using
+/// an IMeshDictionary object provided. Use the same dictionary instance for several meshes
+/// to keep consistency in bone ids. 
+/// \remark
+/// - To start using the VBS functionality, first call IMesh::SupportBlendWeight
+/// - Then use IMesh::AddBlendWeight.
+/// - VBS may allocate large temporary data structures (created by SupportBlendWeight, released by Close)
+/// - As use of VBS occasionally causes new vertices to be created, it may lead to the \ref FW_E_MEMOVERRUN error.
+/// - see also the \ref MeshSub section below.
+///
+/// \subsection MeshSub Submeshes
+/// Some hardware platforms do not support bone indices; similar situation occurs when 
+/// \ref MESH_VERTEX_BONEWEIGHT but not \ref MESH_VERTEX_BONEINDEX buffer creation flags are applied.
+/// Subsequently only a limited set of globally defined bones may be used per mesh.
+/// If necessary, the VBS engine (see the \ref MeshVer above) will divide and sort vertices into several submeshes,
+/// so that not to exceed the allowed number of bones in each submesh. This facility is implemented
+/// in IMesh::Close and may significantly increase the execution time of this function.
+/// Creation of submeshes significantly affects the way in which the mesh should be rendered (see below).
+///
+/// \subsection MeshRndr Remarks on Mesh Rendering
+/// The Vertex and Face Buffer, initialised with data and finalised with IMesh::Close call
+/// are the general basis for rendering. However the use of Vertex Blending Support with Submeshes
+/// (see IMesh::MeshSub) may cause that multiple, relatively small submeshes shuld be rendered rather
+/// than the whole mesh. All the submeshes share the same Vertex/Face Buffers. First call
+/// IMesh::SupportsSubmeshedVertexBlending to check if this is the case; if positive, call
+/// IMesh::GetSubmeshInfo to collect details on submesh division.
+///
+/// \section MeshImpl Implementation Remarks
+/// Vertex and Face Buffers are highly platform-dependent objects and are not implemented
+/// in the FreeWill+ module. See the external implementation classes 
+/// FWRender::MeshDX9VertexBuffer and FWRender::MeshDX9FaceBuffer.
+///
+/// The Mesh implementation is platform-independent and unlikely to be replaced 
+/// in the future extensions, see FreeWillPlus::Mesh, so is the auxiliary class
+/// FreeWillPlus::MeshDictionary.
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Assumption:
+// all [in], [in, out] and [out, retval] pointers must be valid: the implementation has no need to validate them
+// all [out] pointers may be NULL pointers: the implementation must not assign any values in such case
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// LIST OF INTERFACES
+
+// MESH+ generic buffer
+interface IMeshBuffer;
+// MESH+ vertex buffer
+interface IMeshVertexBuffer;
+// MESH+ face buffer
+interface IMeshFaceBuffer;
+// MESH+ dictionary (used for mapping bone names to indices)
+interface IMeshDictionary;
+// MESH+ mesh
+interface IMesh;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @name Buffer Open Modes
+
+
+/// \ingroup meshplus
+/// @name Buffer Open Modes.
+/// Identifies various modes in which a buffer can be open. 
+/// See IMeshBuffer::Open.
+enum MESH_OPENMODES
+{
+	MESH_OPEN_READ			= 0,	///< buffer open to read only; see IMeshBuffer::Open
+	MESH_OPEN_APPEND		= 1,	///< buffer open to append (write) new bytes beyond the end of data; see IMeshBuffer::Open
+	MESH_OPEN_MODIFY		= 2,	///< buffer open to read and write; see IMeshBuffer::Open
+	MESH_OPEN_UNUSED		= 0x7fffffff
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @name Vertex Format Specifiers
+
+
+/// \ingroup meshplus
+/// @name Vertex Format Tags
+/// Identifies various items of the vertex structure. 
+/// See IMeshVertexBuffer::GetCaps.
+/// \remark Values of this enumeration correspond to \ref MESH_VERTEX calues as indices to mask flags.
+enum MESH_VERTEXID
+{
+	MESH_VERTEXID_XYZ		 = 0,	///< see \ref MESH_VERTEX_XYZ
+	MESH_VERTEXID_NORMAL	 = 1,	///< see \ref MESH_VERTEX_NORMAL
+	MESH_VERTEXID_POINTSIZE	 = 2,	///< see \ref MESH_VERTEX_POINTSIZE
+	MESH_VERTEXID_DIFFUSE	 = 3,	///< see \ref MESH_VERTEX_DIFFUSE
+	MESH_VERTEXID_SPECULAR	 = 4,	///< see \ref MESH_VERTEX_SPECULAR
+	MESH_VERTEXID_BONEWEIGHT = 5,	///< see \ref MESH_VERTEX_BONEWEIGHT
+	MESH_VERTEXID_BONEINDEX	 = 6,	///< see \ref MESH_VERTEX_BONEINDEX
+	MESH_VERTEXID_TEXTURE	 = 7,	///< see \ref MESH_VERTEX_TEXTURE
+	MESH_VERTEXID_RESERVED1	 = 8,	///< see \ref MESH_VERTEX_RESERVED1
+	MESH_VERTEXID_RESERVED2	 = 9,	///< see \ref MESH_VERTEX_RESERVED2
+	MESH_VERTEXID_RESERVED3	 = 10,	///< see \ref MESH_VERTEX_RESERVED3
+	MESH_VERTEXID_RESERVED4	 = 11,	///< see \ref MESH_VERTEX_RESERVED4
+	MESH_VERTEXID_RESERVED5	 = 12,	///< see \ref MESH_VERTEX_RESERVED5
+	MESH_VERTEXID_RESERVED6	 = 13,	///< see \ref MESH_VERTEX_RESERVED6
+	MESH_VERTEXID_RESERVED7	 = 14,	///< see \ref MESH_VERTEX_RESERVED7
+	MESH_VERTEXID_RESERVED8	 = 15,	///< see \ref MESH_VERTEX_RESERVED8
+	MESH_VERTEXID_UNUSED	 = 0x7fffffff
+};
+
+/// \ingroup meshplus
+/// @name Vertex Format Requirement flags
+/// Defines required items of the vertex format. See IMeshVertexBuffer::Create.
+/// The actual format of the created buffer may be slightly different:
+/// - implementation may ignore some flags; check Format attr to check which specifiers have been applied
+/// - implementation may decrease nBones/nTextures values if technical restrictions apply
+/// - implementation may use own extended flags not listed below (first 16 bits are reserved)
+///
+/// \remark Values of this enumeration correspond to \ref MESH_VERTEXID calues mask flags to their indices
+enum MESH_VERTEX
+{
+	MESH_VERTEX_XYZ			 = 1 << MESH_VERTEXID_XYZ,			///< vertex (x, y, z) position
+	MESH_VERTEX_NORMAL		 = 1 << MESH_VERTEXID_NORMAL,		///< vertex normal
+	MESH_VERTEX_POINTSIZE	 = 1 << MESH_VERTEXID_POINTSIZE,	///< point size
+	MESH_VERTEX_DIFFUSE		 = 1 << MESH_VERTEXID_DIFFUSE,		///< vertex diffuse colour
+	MESH_VERTEX_SPECULAR	 = 1 << MESH_VERTEXID_SPECULAR,		///< vertex specular colour
+	MESH_VERTEX_BONEWEIGHT	 = 1 << MESH_VERTEXID_BONEWEIGHT,	///< bone wieghts (total number of bones passed in nBones; nBones >= 2 - see IMeshVertexBuffer::Create)
+	MESH_VERTEX_BONEINDEX	 = 1 << MESH_VERTEXID_BONEINDEX,	///< bone indices; number of indices will be equal to total number of bones nBones
+	MESH_VERTEX_TEXTURE		 = 1 << MESH_VERTEXID_TEXTURE,		///< texture co-ordinates; total number of coordinates should be passed in nTextures
+	MESH_VERTEX_RESERVED1	 = 1 << MESH_VERTEXID_RESERVED1,	///< reserved for future extensions
+	MESH_VERTEX_RESERVED2	 = 1 << MESH_VERTEXID_RESERVED2,	///< reserved for future extensions
+	MESH_VERTEX_RESERVED3	 = 1 << MESH_VERTEXID_RESERVED3,	///< reserved for future extensions
+	MESH_VERTEX_RESERVED4	 = 1 << MESH_VERTEXID_RESERVED4,	///< reserved for future extensions
+	MESH_VERTEX_RESERVED5	 = 1 << MESH_VERTEXID_RESERVED5,	///< reserved for future extensions
+	MESH_VERTEX_RESERVED6	 = 1 << MESH_VERTEXID_RESERVED6,	///< reserved for future extensions
+	MESH_VERTEX_RESERVED7	 = 1 << MESH_VERTEXID_RESERVED7,	///< reserved for future extensions
+	MESH_VERTEX_RESERVED8	 = 1 << MESH_VERTEXID_RESERVED8,	///< reserved for future extensions
+	MESH_VERTEX_UNUSED		 = 0x7fffffff
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+// INTERFACE DEFINITIONS
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup meshplus
+/// \interface IMeshBuffer
+/// MESH+ Generic Buffer.
+///
+/// A generic interface, see IMeshVertexBuffer and IMeshVertexBuffer for specialisations.
+/// Covers basic functionality / information for a generic buffer.
+/// Derived interfaces may include individual functions for buffer creation/destroying.
+/// Call \ref Open or similar function to access the buffer's raw data.
+/// \ref Close should be always called due to possible future extensions.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(F5E1DBEF-D802-4b47-A340-CACB047FF959),
+	helpstring("MESH+ generic buffer)"),
+	pointer_default(unique)
+]
+interface IMeshBuffer : IFWUnknown
+{
+	/// @name Attributes
+	
+	/// Size of a single vertex position (in bytes)
+	HRESULT GetItemSize([out, retval] FWULONG*);
+	/// Size of the buffer, i.e. number of items
+	HRESULT GetBufSize([out, retval] FWULONG*);		
+	/// Gets the effective length of the data, i.e. number of valid items in the buffer; usually set externally by the user
+	HRESULT GetDataSize([out, retval] FWULONG*);
+	/// Puts the effective length of the data, i.e. number of valid items in the buffer;
+	HRESULT PutDataSize([in] FWULONG);
+	/// Length of the unused section of the buffer; FreeSize = BufSize - DataSize
+	HRESULT GetFreeSize([out, retval] FWULONG*);
+
+	/// @name Creating and opening the buffer
+	/// These functions grant the access to the buffer's raw bytes. Manipulating the actual data 
+	/// is out of the scope of responsibility of the class.
+	/// \return \ref FW_E_NOTREADY if physical buffer not allocated
+
+	/// Gives access to the raw bytes; see also \ref Close (\ref Open "details")
+	/// \param mode   Open Mode, see remarks below
+	/// \param nFirst Index of the first byte in the buffer to open, ignored in MESH_OPEN_APPEND open mode.
+	/// \param nSize  Size of the buffer section to open, ignored in MESH_OPEN_APPEND open mode
+	/// \param pBytes Gets the pointer to the opened byte buffer
+	/// \remark 
+	/// Following open modes are allowed:
+	/// - MESH_OPEN_READ: optimised for read-only operation; any modification to the buffer bytes is highly unrecommended
+	///   as the result will be undetermined; use nSize = 0 to read up to the end of existing data.
+	/// - MESH_OPEN_APPEND: opens to write beyond the existing data. Both nFirst and nSize values are ignored.
+	///   After use ensure to call Close stating how many items have been appended.
+	/// - MESH_OPEN_MODIFY: regular opening for read/write access, ensure to call Close if any data have been modified.
+	HRESULT Open([in] enum MESH_OPENMODES mode, [in] FWULONG nFirst, [in] FWULONG nSize, [out, retval] BYTE **pBytes);
+	
+	/// Opens buffer to read all the available data, a short form for Open(MESH_OPEN_READ, 0, 0, pBytes);
+	HRESULT OpenRead([out, retval] BYTE **pBytes);
+	/// Opens buffer to append, a short form for Open(MESH_OPEN_APPEND, 0, 0, pBytes);
+	HRESULT OpenAppend([out, retval] BYTE **pBytes);
+	
+	/// Closes the buffer and retrieves the data bytes \ref Close "(details)"
+	/// \param nLength: extends the data pointer by nLenght positions ahead, 
+	///	use this parameter exclusively after opening in MESH_OPEN_APPEND mode
+	/// to specify how many items have been appended.
+	/// \remark
+	/// Call this function each time after the buffer use, especially if any bytes were written.
+	/// In some implementations however may be indispensible also after opening in read only mode.
+	/// When the buffer was opened in APPEND mode, specify the number of bytes appended.
+	/// In MODIFY mode you may need to use \ref GetDataSize attribute to set the data amount.
+	HRESULT Close([in] FWULONG nLength);
+
+	/// This function should be called by the Renderer before the rendering 
+	/// to perform implementation-specific operations
+	HRESULT BeforeRendering();
+
+	/// This function should be called by the Renderer after the rendering 
+	/// to perform implementation-specific operations
+	HRESULT AfterRendering();
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup meshplus
+/// \interface IMeshVertexBuffer
+/// MESH+ Vertex Buffer.
+///
+/// Buffer specialization for Vertex Buffers. Buffers are highly platform-dependent
+/// and therefore implementation is done in external module, normally in \ref fwrender.
+/// Vertex buffers keep data for vertices of a mesh, including their co-ordinates, colours,
+/// normal vectors, texture indices etc. (see \ref MESH_VERTEX for the complete list of
+/// supported information). Single buffer may contain data for several meshes, however
+/// the user must keep track of the ranges relating to consecutive meshes.
+///
+/// \sa \ref BufSection
+/// \sa Implementation in FWRender::MeshDX9VertexBuffer
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(3D644C98-FFB8-4240-BF04-696BC40D987F),
+	helpstring("MESH+ vertex buffer)"),
+	pointer_default(unique)
+]
+interface IMeshVertexBuffer : IMeshBuffer
+{
+	/// Vertex Buffer construction \ref Create "(details)".
+	/// \param nSize Size of the resulting buffer as a number of vertices
+	/// \param nFormat Required format of the buffer, a combination of the \ref MESH_VERTEX flags
+	/// \param nBones Required number of bones (usually \ref MESH_VERTEX_BONEWEIGHT flag should be on)
+	/// \param nTextures Required number of texture indices (usually \ref MESH_VERTEX_TEXTURE flag should be on)
+	/// \remark 
+	/// - The actual format of the created buffer may differ from the required one. See \ref MESH_VERTEX for details. 
+	/// - You can query the buffer format with \ref GetFormat
+	/// - You can query the location of various items of the vertex structure with \ref GetCaps
+	/// - With MESH_VERTEX_BONEWEIGHT the actual number of weights allocated 
+	/// will usually be nBones - 1 as the last one is 1 - sum of all the rest
+	HRESULT Create([in] FWULONG nSize, [in] FWULONG nFormat, [in] FWULONG nBones, [in] FWULONG nTextures);
+
+	/// Returns the actual format, number of bones and number of textures allocated by \ref Create \ref GetFormat "(details)".
+	/// \retval nFormat The actual format of the buffer, a combination of the \ref MESH_VERTEX flags
+	/// \retval nBones The actual number of bones  \retval nTextures The actual number of textures
+	HRESULT GetFormat([out] FWULONG *nFormat, [out] FWULONG *nBones, [out] FWULONG *nTextures);
+	
+	/// Returns the location information for the given format tag in the vertex data structure \ref GetCaps "(details)".
+	/// \param nFlag The required vertex structure item (see \ref MESH_VERTEXID)
+	/// \param nIndex Optional index for indexed items (e.g. bone weights, texture data etc.)
+	/// \retval *pOffset Offset of the required item from the beginning of the vertex data structure
+	/// \retval *pSize Size of the required item in the vertex data structure
+	HRESULT GetCaps([in] enum MESH_VERTEXID nFlag, [in] FWULONG nIndex, [out] FWULONG *pOffset, [out,retval] FWULONG *pSize);
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup meshplus
+/// \interface IMeshFaceBuffer
+/// MESH+ Face Buffer.
+///
+/// Buffer specialization for Face Buffers. Buffers are highly platform-dependent
+/// and therefore implementation is done in external module, normally in \ref fwrender.
+/// Each face consists of three vertex indices and represents a single \b triangle.
+/// Single buffer may contain triangles for several different meshes, however
+/// the user must keep track of the ranges relating to consecutive meshes.
+///
+/// \sa \ref BufSection
+/// \sa Implementation in FWRender::MeshDX9FaceBuffer
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(A5135CD9-7AB7-4e1e-8B47-7025B962C290),
+	helpstring("MESH+ face buffer)"),
+	pointer_default(unique)
+]
+interface IMeshFaceBuffer : IMeshBuffer
+{
+	/// Creates the buffer.
+	/// Creates nSize items, each is a triple of vertex indices. 
+	/// Therefore the actual length of buffer is nSize * 3 * sizeof(INDEX) bytes. 
+	HRESULT Create([in] FWULONG nSize);
+
+	/// Retrieves the actual format (size) of the buffer, which is the number of bits per vertex index (usually 16 or 32)
+	HRESULT GetFormat([out] FWULONG *nBitsPerIndex);
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup meshplus
+/// \interface IMeshDictionary
+/// MESH+ Bone Dictionary (auxiliary class).
+///
+/// Simple, auxiliary class supporting IMesh with numerical synonims for bone names.
+/// The dictionaries are created automatically by the ISceneObject and then passed
+/// to IMesh objects, thus they are rarely used directly.
+/// \remark
+/// Call \ref GetIndex to get a unique index for a given string. First, the dictionary 
+/// tries to substitute the given string with its synonym, if any has been set.
+/// 
+/// \sa IMesh::SupportBlendWeight
+/// \sa Implementation in FreeWillPlus::MeshDictionary
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(29203F53-E30D-413d-8DA0-47B3A464045B),
+	helpstring("MESH+ Bone Dictionary)"),
+	pointer_default(unique)
+]
+interface IMeshDictionary : IFWUnknown
+{
+	/// @name Dictionary of Words into Integers
+	/// Produces unique numerical ids for each distinguishable string.\n
+	/// Strings not found in the dictionary are assigned to a new consecutive id.\n
+	/// The strings are first substituted by their Synonyms, if any exists (see below)
+
+	/// Returns the number of items in the dictionary
+	HRESULT GetNum([out, retval] FWULONG*);
+	/// Returns the string Name at the given id (\ref FW_E_BADINDEX if out of range)
+	HRESULT GetName ([in] FWULONG i, [out, retval] LPOLESTR*);
+	/// Returns the index for the given string Name, creates a new entry for new names
+	HRESULT GetIndex([in] LPOLESTR pName, [out, retval] FWULONG*);
+	/// Returns the index for the given string Name, returns S_FALSE for non-existing names
+	HRESULT GetIndexIfExists([in] LPOLESTR pName, [out, retval] FWULONG*);
+
+	/// @name The Dictionary of Synonyms
+	/// Provides string synonyms for string names.\n
+	/// Used as a pre-processing level for the Word into Integer dictionary (see above)
+
+	/// Puts a new synonym pair
+	HRESULT PutSynonim([in] LPOLESTR pFor, [in] LPOLESTR pSynonim);
+	/// Gets a synonim pair, returns the same word if no synonym known
+	HRESULT GetSynonim([in] LPOLESTR pFor, [out, retval] LPOLESTR*);
+	/// Retrieves number of synonym pairs
+	HRESULT GetSynonimNum([out, retval] FWULONG*);
+	/// Retrieve the synonym pair at the given index (\ref FW_E_BADINDEX if out of range)
+	HRESULT GetSynonimAt([in] FWULONG *pi, [out] LPOLESTR*, [out, retval] LPOLESTR*);
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup meshplus
+/// \interface IMesh
+/// MESH+ Mesh Object.
+///
+/// A convenient high-level interface encapsulating much of buffer and mesh related functionality. 
+/// Represents a mesh consisted of a number of vertices and faces and assists the whole mesh 
+/// life cycle including initializing buffers, filling them with data, until eventually 
+/// applying the ready dataset to render the mesh.
+///
+/// \sa \ref MeshSection for details.
+/// \sa Implementation in FreeWillPlus::Mesh
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(22BD3167-DD6B-4597-8D11-3F03E3B554E6),
+	helpstring("MESH+ mesh)"),
+	pointer_default(unique)
+]
+interface IMesh : IFWUnknown
+{
+	/// @name Capabilities
+	/// Delivers the information deduced from the buffer capabilities.
+	/// \return \ref FW_E_NOTREADY if buffers not initialized
+	/// \remark The actual buffer format may be different than requested when created the buffers.
+
+	/// Currently used vertex format, calls IMeshVertexBuffer::GetFormat
+	HRESULT GetVertexFormat([out] FWULONG *nFormat, [out] FWULONG *nBones, [out] FWULONG *nTextures, [out] FWULONG *nVertexSize);
+	/// Currently used vertex layout, calls IMeshVertexBuffer::GetCaps
+	HRESULT GetVertexCaps([in] enum MESH_VERTEXID nFlag, [in] FWULONG nIndex, [out] FWULONG *pOffset, [out,retval] FWULONG *pSize);
+	/// Currently used face format, 2 for 16-bit vertex index format, 4 for 32-bit vertex indexs format
+	HRESULT GetFaceFormat([out] FWULONG *nSizeOfVertexIndex);
+	/// returns S_OK if the vertex buffer supports \ref MESH_VERTEX_BONEWEIGHT flag (bone weights); S_FALSE otherwise; see \ref MeshVer
+	HRESULT SupportsVertexBlending();
+	/// returns S_OK if the vertex buffer supports \ref MESH_VERTEX_BONEWEIGHT 
+	/// and \ref MESH_VERTEX_BONEINDEX flags (bone weights & indices); S_FALSE otherwise; see \ref MeshVer
+	HRESULT SupportsIndexedVertexBlending();
+	/// returns S_OK if the vertex buffer supports the \ref MESH_VERTEX_BONEWEIGHT flag
+	/// but not the \ref MESH_VERTEX_BONEINDEX flags (bone weights & indices); S_FALSE otherwise; see \ref MeshSub
+	HRESULT SupportsSubmeshedVertexBlending();
+
+
+	/// @name Properties: Visibility
+	/// Determines the visibility of the mesh
+
+	HRESULT IsVisible();				///< Returns S_OK if the mesh is visible (switched on); S_FALSE otherwise
+	HRESULT PutVisible(BOOL bOn);		///< Switches the mesh visibility on or off
+
+	/// @name Properties: Used Buffer Range
+	/// Delivers information on the position and size of data stored in the vertex & face buffers.\
+	/// \return \ref FW_E_NOTREADY if buffers not initialized
+
+	HRESULT GetVertexFirst([out, retval] FWULONG*);		///< Index of the first allocated vertex position
+	HRESULT GetVertexNum([out, retval] FWULONG*);			///< Size of the allocated vertex range
+	HRESULT GetVertexItemSize([out, retval] FWULONG*);	///< Size of a single Vertex item
+
+	HRESULT GetFaceFirst([out, retval] FWULONG*);			///< Index of the first allocated face position
+	HRESULT GetFaceNum([out, retval] FWULONG*);			///< Size of the allocated face range
+	HRESULT GetFaceItemSize([out, retval] FWULONG*);		///< Size of a single Face item
+
+	/// @name Mesh Transformation
+	/// Use Mesh Transform to initially, automatically transform all the vertex coordinates passed
+	/// to IMesh::SetVertexXYZ and IMesh::AddNormal functions. No other data will be affected.
+	HRESULT GetTransform([out, retval] ITransform **pVal);	///< Gets the Mesh Transform
+	HRESULT PutTransform([in] ITransform *newVal);			///< Puts the Mesh Transform
+
+
+	/// @name Dependent Objects: Buffer and Dictionary
+	/// Notice that buffers and the dictionary are assigned automatically when
+	/// ISceneObject::AddMesh and ISceneObject::NewMesh are called,
+	/// thus these properties will rarely be used directly
+
+	HRESULT GetBuffers([out] IMeshVertexBuffer**, [out] IMeshFaceBuffer**);	///< Retrieves Vertex & Face Buffers
+	HRESULT PutBuffers([in]  IMeshVertexBuffer*,  [in] IMeshFaceBuffer*);	///< Sets Vertex & Face Buffers
+	HRESULT IsReady();											///< S_OK if both buffers set; S_FALSE if any buffer is still NULL
+	HRESULT GetDictionary([out, retval] IMeshDictionary**);		///< Retrieves IMeshDictionary
+	HRESULT PutDictionary([in] IMeshDictionary*);				///< Sets IMeshDictionary
+
+
+	/// @name Opening and Closing
+
+	/// Gives access to the raw data; opens both vertex and face buffers to be filled with data \ref Open "(details)".
+	/// \retval pVertexBytes vertex buffer bytes \retval pFaceBytes face buffer bytes
+	/// \remark If only high-level data functions will be used, the actual pointers to
+	/// byte buffers may be unwanted; thus you can call Open(NULL, NULL).
+	/// \sa VertexNum, FaceNum (size of the available buffers)
+	/// \return \ref FW_E_NOTREADY if buffers not initialized
+	HRESULT Open([out] BYTE **pVertexBytes, [out] BYTE **pFaceBytes);
+	/// Should be called once after \ref Open call to release any memory allocated and save the buffer contents \ref Close "(details)".
+	/// This function also terminates the \ref MeshVer if \ref SupportBlendWeight had been called.
+	/// \return \ref FW_E_MEMOVERRUN or E_NOTIMPL if final blending support unsuccessfull.
+	HRESULT Close();
+
+
+	/// @name General Data Support
+	/// Functions for quick and easy setting the xyz, colouring, point size and texture attributes for vertices 
+	/// \sa \ref MeshGen
+	/// \return \ref FW_E_NOTREADY (buffers not initialized or IMesh::Open not called), \ref FW_E_MEMOVERRUN, \ref FW_E_FORMAT
+
+	/// Sets the XYZ data for the iVertex'th vertex; return values - see above
+	HRESULT SetVertexXYZ([in] FWULONG iVertex, [in] FWFLOAT x, [in] FWFLOAT y, [in] FWFLOAT z);
+	/// The same as \ref SetVertexXYZ; FWVECTOR param used in place of x, y, z
+	HRESULT SetVertexXYZVector([in] FWULONG iVertex, [in] FWVECTOR v);
+	/// Sets the PointSize data for the iVertex'th vertex; return values - see above
+	HRESULT SetVertexPointSize([in] FWULONG iVertex, [in] FWULONG);
+	/// Sets the Diffuse Colour data for the iVertex'th vertex; return values - see above
+	HRESULT SetVertexDiffuse([in] FWULONG iVertex, [in] FWULONG);
+	/// Sets the Specular Colour data for the iVertex'th vertex; return values - see above
+	HRESULT SetVertexSpecular([in] FWULONG iVertex, [in] FWULONG);
+	/// Sets the Texture data (index & value) for the iVertex'th vertex; return values - see above
+	HRESULT SetVertexTexture([in] FWULONG iVertex, [in] FWULONG iTexture, [in] FWULONG);
+	HRESULT SetVertexTextureUV([in] FWULONG iVertex, [in] FWULONG iTexture, [in] FWFLOAT u, [in] FWFLOAT v);
+	/// Sets the data for the iFace'th face; return values - see above
+	HRESULT SetFace([in] FWULONG iFace, [in] FWULONG iVertexA, [in] FWULONG iVertexB, [in] FWULONG iVertexC);
+
+	// Sets the material
+	HRESULT SetMaterial([in] IMaterial *pMaterial);
+	// Gets the material
+	HRESULT GetMaterial([out, retval] IMaterial **ppMaterial);
+
+	/// @name Support for Normal Vectors
+	/// \sa \ref MeshNor
+
+	/// Initializes the Normal Vector Support \ref SupportNormal "(details)".
+	/// \sa \ref MeshNor
+	/// \param nLimit determines the size of the Normal Control Structure (see below); 0 for the maximum size
+	/// \remark Creates the Normal Control Structure that is used by \ref AddNormal
+	/// to locate all the clones of a given vertex and to determine if cloning is needed (see \ref MeshNor).
+	/// You can control the size of this structure with nLimit parameter; it shoould not be less
+	/// than the actual number of vertices, \ref GetVertexNum. Set nParam = 0 to cover the maximum length
+	/// of the buffer or alternatively you can pass a value corresponding to the expected number of vertex clones.
+	/// \note The Normal Control Structure will be deleted during \ref Close call.
+	/// \return 
+	/// - \ref FW_E_NOTREADY if buffers not initialized or \ref Open not called.
+	/// - FW_E_INVALIDARG if nLimit to small (less then \ref GetVertexNum).
+	/// - \ref FW_E_MEMOVERRUN if nLimit to large (overruns the size of the vertex buffer)
+	/// - FW_E_OUTOFMEMORY if the Normal Control Structure cannot be created.
+	HRESULT SupportNormal([in] FWULONG nLimit);
+	/// Adds the normal value for a given vertex \ref AddNormal "(details)".
+	/// \sa \ref MeshNor
+	/// \param index The index of the vertex for which a normal is added
+	/// \param x, y, z The normal coordinates
+	/// \retval index The index of the actual vertex assigned to the given normal (see below)
+	/// \return \ref FW_E_NOTREADY if buffers not initialized or \ref Open not called or \ref SupportNormal not called.
+	/// \return \ref FW_E_MEMOVERRUN if a cloned vertex overrun the vertex buffer.
+	/// \remark 
+	/// - If the index'th vertex is not assigned to any normal, [x,y,z] is set as its normal; index remains unchanged.
+	/// - If the index'th vertex already has the normal, and it is equal to [x,y,z], nothing is done; index remains unchanged.
+	/// - If the index'th vertex already has the normal, but it is not equal to [x,y,z], all its clones (if any) are browsed:
+	///		- if any clone has the normal equal to [x,y,z] index is assigned its index.
+	///		- if there's no such clone, a new clone is created; [x,y,z] is set as its normal; index is assigned to its index.
+	HRESULT AddNormal([in, out] FWULONG *index, [in] FWFLOAT x, [in] FWFLOAT y, [in] FWFLOAT z);
+	/// The same as \ref AddNormal; FWVECTOR param used in place of x, y, z
+	HRESULT AddNormalVector([in, out] FWULONG *index, [in] FWVECTOR v);
+	
+	
+	/// @name Support for Weight Blending
+	/// \sa \ref MeshVer
+	
+	/// Initializes the Vertex Blending Support.
+	/// \sa \ref MeshVer
+	/// \param fMinWeight Threshold value under which bone weights will be ignored (suggested value: 0.01f)
+	/// \param nMinVertexNum - Expected number of vertices, or 0 when no new vertices expected - see remark below
+	/// \remark Creates the Weight Control Structure that is used by \ref AddBlendWeight
+	/// to temporarily store blending data. You can control the size of this data by nMinVertexNum
+	/// param; the actual size is the max of nMinVertexNum and the current number of vertices.
+	/// If no more vertices are expected leave this param as 0. 
+	/// \note The actual blending data will be copied to the buffers during \ref Close. 
+	/// The Weight Control Structure will be also deleted then.
+	/// \return \ref FW_E_NOTREADY if buffers not initialized or \ref Open not called.
+	/// \return \ref FW_E_FORMAT if the vertex format does not contain blending data (\ref MESH_VERTEX_BONEWEIGHT)
+	/// or too few bones have been declared
+	HRESULT SupportBlendWeight([in] FWFLOAT fMinWeight, [in] FWULONG nMinVertexNum);
+	/// Adds the bone weight for the given vertex.
+	/// \sa \ref MeshVer
+	/// \param iVertex Vertex index \param fWeight The bone weight (0..1) \param pBoneName The bone name
+	/// \remark The \ref MeshVer engine automatically assigns a unique index to each bone name. Least significant
+	/// bones may be ignored, regarding hardware capabilities.
+	/// \return \ref FW_E_NOTREADY if if buffers not initialized or \ref Open not called or \ref SupportBlendWeight not called.
+	/// \return \ref FW_E_MEMOVERRUN if iVertex out of range.
+	HRESULT AddBlendWeight([in] FWULONG iVertex, [in] FWFLOAT fWeight, [in, string] LPOLESTR pBoneName);
+
+
+	/// @name Submesh Info for Rendering
+	/// \sa \ref MeshRndr
+
+	/// Returns detailed information on submeshes.
+	/// \sa \ref MeshRndr
+	/// \remark First call \ref SupportsSubmeshedVertexBlending to check if the mesh contains any submeshes.
+	/// This function instructs how to divide the Face Buffer into separate submeshes
+	/// \retval *pnSubmeshNum Total number of submeshes		\retval *pnBoneNum Total number of bones
+	/// \retval *pSubmeshLen Array of size *pnSubmeshNum: entries contain total number of faces in consecutive submeshes
+	/// \retval *pSubmeshBones Array of size *pnSubmeshNum * *pnBoneNum: entries contain lists of bone indices for each submesh
+	/// \return \ref FW_E_FORMAT if no submesh division (\ref SupportsSubmeshedVertexBlending is not S_OK)
+	/// \return \ref FW_E_NOTREADY if \ref SupportBlendWeight not called
+	HRESULT GetSubmeshInfo([out] FWULONG *pnSubmeshNum, [out] FWULONG *pnBoneNum, [out] FWULONG **pSubmeshLen, [out] FWULONG **pSubmeshBones);
+};
+
+///@}

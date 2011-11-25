@@ -1,0 +1,43 @@
+import "actionplus.idl"; 
+
+#define COCLASS(UUID, HELPSTR, NAME)	\
+	[									\
+		uuid(UUID),						\
+		helpstring(HELPSTR)				\
+	]									\
+	coclass NAME						\
+	{									\
+	[default] interface IAction;		\
+	}
+
+
+[ 
+    uuid (8F4F51DD-CFDB-4542-8F51-F5739849BF46), 
+    version (1.0), 
+    helpstring ("FreeWill Basic Actions Type Library") 
+] 
+library FWStdActions
+{ 
+    importlib ("stdole32.tlb");
+
+	COCLASS(212122F6-0554-48e8-8903-69A146EFFF40, "ACTION+ Generic Action", Action);
+	COCLASS(6FE43A9D-1857-4943-9CF7-EC83018C3AE8, "ACTION+ Move Action", ActionMove);
+	COCLASS(50D37750-FBA1-4411-8003-C6A25780085E, "ACTION+ Move-To Action", ActionMoveTo);
+	COCLASS(1ACC53DE-27DE-4a3e-855B-2BA081ACE3CE, "ACTION+ Rotate Action", ActionRotate);
+	COCLASS(369781ED-7342-404e-AEB7-4517355377D5, "ACTION+ Inverted-Chain Rotate Action", ActionRotateInv);
+	COCLASS(C6DB1984-2972-4204-B078-FFD0D9F786D1, "ACTION+ Rotate-To Action", ActionRotateTo);
+	COCLASS(031D9E66-DA68-4217-B415-EF4D7805EB01, "ACTION+ Multiple-Bone Rotate Action", ActionMultiRotate);
+	COCLASS(0045096C-D991-4cf5-8575-EF1D0CE844E2, "ACTION+ Multiple-Bone Rotate-To Action", ActionMultiRotateTo);
+	COCLASS(22580CF7-61D4-4d98-A371-0AC91376CBE6, "ACTION+ Reach (IK) Action", ActionReach);
+	COCLASS(E6023A79-1842-4ab8-9CC0-B2F96D160E33, "ACTION+ Grasp Action", ActionGrasp);
+	COCLASS(2C39B26F-92C4-4573-899E-F220FCE02401, "ACTION+ Take (Reach and Grasp) Action", ActionTake);
+	COCLASS(9C70F1BC-2BF8-4516-9FF9-CF6C6E4DB5E3, "ACTION+ Point Action", ActionPoint);
+	COCLASS(1BBBEB81-5050-4000-A2C6-48D62A144CA5, "ACTION+ Bend Action", ActionBend);
+	COCLASS(B905F73A-9CAF-4a0e-A71B-7C50E06AF67F, "ACTION+ Squat Action", ActionSquat);
+	COCLASS(429ADAAE-E5CA-4244-9D56-80598406D8D4, "ACTION+ Swing Action", ActionSwing);
+	COCLASS(8CF7940A-671E-4601-B8F6-3F9E3CBDC1DC, "ACTION+ Single Wait Action", ActionWait);
+	COCLASS(A98C8D58-A71E-4a7e-95F1-87CF99D46DA4, "ACTION+ Single Step Action", ActionStep);
+	COCLASS(ED10C57C-B54F-4204-BAE0-33D11008595E, "ACTION+ Turn Action", ActionTurn);
+	COCLASS(7787FE71-FB39-4b7e-BFC9-E3DAECEAA43A, "ACTION+ Walk Action", ActionWalk);
+	COCLASS(0333E5B4-9756-4268-9924-F7941A88C94A, "ACTION+ Collision Detection Action", ActionDetColl);
+};

@@ -1,0 +1,620 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// KINE+ IDL file
+/// \file 
+/// Essential building blocks to create kinematical hierachies, see \ref kineplus
+
+import "transplus.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup kineplus KINE+ Module
+/// Essential building blocks to create kinematical hierachies of 3D objects.
+/// Here are interfaces for:
+/// - Generic 3D Objects (IKineObj3D)
+/// - Kinematical chain building blocks (IKineChild, IKineNode)
+/// - target directed object - an object capable to point at a target (IKineTargetedObj)
+/// - Auxiliaries (IKineEnumChildren)
+///
+/// \section Obj3D 3D Objects and their Transforms
+/// 
+/// KINE+ 3D objects (IKineObj3D) incorporate several transforms. 
+/// They are combined to obtain the final (global) transform.
+/// - \b Local Transform. Current transfomation of the object. Corresponds to the
+/// current position and rotation, changing frequently during the animation. Combined with the
+/// Base Transform gives the actual position in the predecessor's coordinates.
+/// - \b Base Transform. It's the default transform expressed in the coordinates 
+/// of the previous link of the kinematical chain (if any). Usually it is not changed
+/// during the object lifetime. In case of a character skeleton, the base transform
+/// usually corresponds to the bone offset in relation to its predecessor
+/// and also to the default pose of the character.
+/// - \b Parent Transform (read only) represents the final (global) transform of the predecessor
+/// node (the parent), or an identity transform if there is no predecessor.
+/// - \b Global Transform (read only). The final transform expressed in global 
+/// coordinates. Calculated as a combination of <i> local * base * parent </i>.
+/// - \b Reference Transform is the additional transform intended to keep the initial
+/// (reference) pose of a single-meshed model that corresponds to the actual mesh
+/// configuration.
+///
+/// \section KChain Kinematic Chains and Hierarchies
+/// 
+/// 3D objects are usually put into kinematical chains, in which the final (global)
+/// position depends not only on the local transform(s), but also on the transforms
+/// of all the preceding links in the chain (see the previous section). 
+/// An object should implement IKineChild interface to be put into the kinematic chain, 
+/// and also IKineNode to add its own successors into the chain.
+///
+/// Notice that KINE+ allows for more than one parent, so a single node may appear in
+/// several hierarchies - see IKineChild for details.
+///
+/// \section Vldtn Validation Procedure
+/// 
+/// The Global Transform should be stored in the object for optimization purposes.
+/// The drawback of this approach is that each time any change is made at the previous
+/// stages of the kinematical chain, the stored value of Global Transform invalidates.
+/// To avoid unnecessary computation and keep all the data up-to-date, IKineObj3D::Invalidate
+/// and IKineObj3D::Validate functions are provided. Invalidation should propagate down the
+/// chain, at least until the first invalid link (the rule is that all successors of the invalid
+/// link must also be invalid). The Invalidate is called automatically each time any transform
+/// is modified, and Validate is called if necessary when the Global Transform is queried.
+/// It is unlikely that you would ever call these functions directly from outside KINE+.
+/// \remark Invalidation acts only upon child nodes for which the calling node is the primary parent
+///
+/// \section Naming Naming and Namespaces
+///
+/// <b> Fully Qualified Names </b> are used to access any item in an excessive structure.
+/// They are specified by explicitly stating the whole path in the
+/// kinematical chain, with consecutive links separated with dots, eg.
+/// "LClavicle.LArm.LForearm.LHand.LFinger2.LFinger21.LFinger22".
+///
+/// As fully qualified names may be inconvenient, some links may be grouped together in
+/// a flat structure, which does not reflect the kinematical
+/// relationships but offers quick, one-step naming capability. Technically it consists in
+/// creating an additional, simple hierarchy (see also a remark in IKineChild).
+///
+/// \section KineImpl Implementation Remarks
+/// At least five classes implement interfaces defined in this module. These are:
+/// - FreeWillPlus::KineBone, the system main building block
+/// - FreeWillPlus::Mesh, meshes that can be added to renderees as child nodes
+/// - Classes implementing the ISceneRenderee interface: 
+///   FreeWillPlus::Scene, FreeWillPlus::SceneObject, 
+///	  FreeWillPlus::SceneLightPoint, FreeWillPlus::SceneLightDir, FreeWillPlus::SceneLightSpot, FreeWillPlus::SceneCamera, 
+///   similar to the bones, with additional rendering-related functionality
+///
+/// These classes create the central part of the FreeWill+ engine, 
+/// are fully platform-independent and unlikely to be replaced
+/// in future extensions.
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Assumption:
+// all [in], [in, out] and [out, retval] pointers must be valid: the implementation has no need to validate them
+// all [out] pointers may be NULL pointers: the implementation must not assign any values in such case
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// LIST OF INTERFACES
+
+// 1. Geometry
+// KINE+ generic 3D transformable object
+interface IKineObj3D;
+
+// 2. Bone system
+// KINE+ generic named object (hierarchy child or leaf)
+interface IKineChild;
+// KINE+ generic hierarchy node (full)
+interface IKineNode;
+
+// 3. Auxiliaries
+// KINE+ child object enumerator
+interface IKineEnumChildren;
+
+// 4. Targeted Object
+// KINE+ target directed object
+interface IKineTargetedObj;
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup kineplus
+/// @name KINE+ Module-Specific Error Codes
+/// Error codes used by classes in this module only
+enum KINE_ERRORS
+{
+	KINE_E_NOTRANSFORM = FW_E_CLASS_ERRORS,	///< Operation not completed due to lack of an essential transform
+	KINE_E_ROOTOBJERR,						///< The hierarchy root object cannot be assigned with labels or ids
+	KINE_E_BADCHILDINDEX,					///< There is no child object with this index value
+	KINE_E_LABELNOTFOUND,					///< Label not found
+	KINE_E_EMPTYLABEL,						///< Label is empty
+	KINE_E_LABELEXISTS,						///< Label already exists
+	KINE_E_OBJECTNOTFOUND,					///< Object or object pointer not found
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup kineplus
+/// @name KINE+ Transform Manipulation Modes
+/// Values used by GetTransform, Multiply and Transform functions
+enum KINE_MODES
+{
+	KINE_REGULAR = TRANS_REGULAR,			///< Regular multiplication: T = X * T
+	KINE_INVERTED = TRANS_INVERTED,			///< Multiplication by an inverted operand, T = (X^-1) * T
+	KINE_RIGHT_SIDE = TRANS_RIGHT_SIDE,		///< Multiplication with the operand put on the left side of the sign: T = T * X
+	KINE_BOTH_SIDES = TRANS_BOTH_SIDES,		///< Multiplication with the operand and its inverse put on both sides of the sign: T = X * T * (X^-1)
+	KINE_RIGHT_SIDE_INVERTED = TRANS_RIGHT_SIDE_INVERTED,	///< TRANS_RIGHT_SIDE and TRANS_INVERTED combined: T = T * (X^-1)
+	KINE_BOTH_SIDES_INVERTED = TRANS_BOTH_SIDES_INVERTED,	///< TRANS_BOTH_SIDES and TRANS_INVERTED combined: T = (X^-1) * T * X
+	KINE_LEFT_SIDE = TRANS_LEFT_SIDE,		///< The same as TRANS_REGULAR
+
+	KINE_RESERVED = 8,						///< Reserved for future extensions
+
+	KINE_LOCAL			= 0 * 16,			///< Implies that the Local Transform is taken as the operand
+	KINE_BASE			= 1 * 16,			///< Implies that the Base Transform is taken as the operand
+	KINE_PARENT			= 2 * 16,			///< Implies that the Parent's node Global Transform is taken as the operand
+	KINE_BASE_LOCAL		= 3 * 16,			///< Implies that the product of Local and Base Transforms is taken as the operand, not to be used with Transform function 
+	KINE_PARENT_BASE	= 4 * 16,			///< Implies that the product of Base and Parent's Global Transforms is taken as the operand, not to be used with Transform function 
+	KINE_GLOBAL			= 5 * 16,			///< Implies that the Global Transform is taken as the operand, not to be used with Transform function
+	
+	KINE_MASK_INVERTED = 1,					///< for internal use only
+	KINE_MASK_MULTIPLY_MODE	= 7,			///< for internal use only
+	KINE_MASK_TRANSFORM		= 15 * 16,		///< for internal use only
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+// INTERFACE DEFINITIONS
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup kineplus
+/// \interface IKineObj3D
+/// KINE+ generic 3D transformable rigid object.
+///
+/// Forms an essential building block for any spatial object or structure of objects,
+/// eqiupped with several transforms.
+///
+/// For general information and the meaning of particular transforms, see \ref Obj3D.
+///
+/// This interface contains no facilities for creating kinematical chains, therefore
+/// is often combined with IKineNode - see FreeWillPlus::KineBone implementation class.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(98AA47BC-E3D8-4bc7-BC13-73A2AB312591),
+	helpstring("KINE+ generic 3D object"),
+	pointer_default(unique)
+]
+interface IKineObj3D : IFWUnknown
+{
+/// @name Properties: Transforms
+/// Use GetXxxTransform functions to read the transforms. 
+/// Pass a pointer to a valid ITransform instance to get it filled with a copy of the Obj3D's transform. 
+/// Any modifications of this transform will not affect the Obj3D.
+/// GetXxxTransformRef functions return a reference to the Obj3D's internal transform.
+/// Any modification of this transform WILL affect the Obj3D, call IKineObj3D::Invalidate your modifications to effect.
+/// PutXxxTransform functions copy your transform into Obj3D internal structures.
+
+	HRESULT GetBaseTransform(ITransform *p);			///< Copies the Base Transform into *p object
+	HRESULT GetBaseTransformRef([out] ITransform **p);	///< Returns a reference to the object Base Trasnform
+	HRESULT GetBaseVector([out] FWVECTOR*);				///< Copies a translation component of the Base Transform into a FWVECTOR struct
+	HRESULT PutBaseTransform(ITransform *newVal);		///< Puts the Base Transform and invalidates the object (see \ref Invalidate)
+	HRESULT GetLocalTransform(ITransform *p);			///< Copies the Local Transform into *p object
+	HRESULT GetLocalTransformRef([out] ITransform **p);	///< Returns a reference to the object Local Trasnform
+	HRESULT PutLocalTransform(ITransform *p);			///< Puts the Local Transform and invalidates the object (see \ref Invalidate)
+	HRESULT GetRefTransform(ITransform *p);				///< Copies the Ref Transform into *p object
+	HRESULT GetRefTransformRef([out] ITransform **p);	///< Returns a reference to the object Reference Trasnform
+	HRESULT PutRefTransform(ITransform *newVal);		///< Puts the Reference Transform and invalidates the object (see \ref Invalidate)
+	HRESULT GetGlobalTransform(ITransform *p);			///< Copies the Global Transform into *p object, validates the object if necessary (see \ref Validate)
+	HRESULT GetGlobalMatrix([out] FWMATRIX);			///< Returns the Global Trasnform, validates the object if necessary (see \ref Validate)
+	HRESULT GetParentTransform(ITransform *p);			///< Copies the Parent Transform into *p object, validates the object if necessary (see \ref Validate)
+	HRESULT GetParentMatrix([out] FWMATRIX);			///< Returns the Parent Trasnform, validates the object if necessary (see \ref Validate)
+
+/// @name General Transform Functions
+
+	/// Extended version of GetTransform functions (\b more).
+	/// Use combination of \ref KINE_MODES modes to specify how this function should be executed.
+	/// Choose between KINE_LOCAL, KINE_BASE, KINE_PARENT, KINE_BASE_LOCAL, KINE_PARENT_BASE and KINE_GLOBAL transforms.
+	/// Use KINE_INVERTED flag to get inverted transform. KINE_RIGHT_SIDE, KINE_BOTH_SIDES flags are ignored.
+	HRESULT GetTransform(ITransform *pT, FWULONG mode);
+	
+	/// Multiplies the transform provided as pT with an object-related transform (operand) (\b more).
+	/// Use combination of \ref KINE_MODES modes to specify how this function should be executed.
+	/// To choose which transfrom should be used in the multiplication use any of the flags:
+	/// KINE_LOCAL, KINE_BASE, KINE_PARENT, KINE_BASE_LOCAL, KINE_PARENT_BASE or KINE_GLOBAL.
+	/// Use KINE_INVERTED, KINE_RIGHT_SIDE, KINE_BOTH_SIDES or their combination to specify the mode of multiplication to be applied.
+	HRESULT Multiply(ITransform *pT, FWULONG mode);
+	
+	/// Transforms the Local Transform with p, the same as Transform(p, 0)
+	HRESULT TransformLocal([in] ITransform *p);				
+
+	/// Transforms either Local or Base Transform (\b more).
+	/// Use combination of \ref KINE_MODES modes to specify how this function should be executed.
+	/// Choose either KINE_LOCAL or KINE_BASE transform (KINE_GLOBAL, KINE_PARENT, KINE_BASE_LOCAL and KINE_PARENT_BASE are not supported).
+	/// Use KINE_INVERTED, KINE_RIGHT_SIDE, KINE_BOTH_SIDES or their combination to specify the mode of multiplication to be applied.
+	HRESULT Transform(ITransform *p, FWULONG mode);	
+														
+	/// Transforms in an inverted kinematic chain considering itself the new root and taking a new end node
+	HRESULT TransformInv([in] ITransform *p, IKineObj3D *pTerm);
+
+/// @name Basic methods
+
+	HRESULT CreateCompatibleTransform([out, retval] ITransform**);	///< Creates a transform compatible with object's internal data
+	HRESULT Reset();							///< Resets the Local Transform. The Base Transform remains unchanged.
+	HRESULT FreezeRef();						///< Stores the current Global Transform as the Ref Transform.
+	HRESULT Adopt();							///< Passes the actual Local Transform to the Base Transform and resets the Local Transform.
+	HRESULT Orthonormalize();					///< Normalisation of the Local Transform
+	HRESULT LtoG([in, out] FWVECTOR *pVector);	///< Transforms pVector with the object's current and valid Global Transform.
+	HRESULT GtoL([in, out] FWVECTOR *pVector);	///< Transforms global pVector into object's local co-ordinates
+
+/// @name Validation
+/// See \ref Vldtn for discussion of the validation procedures.
+
+	HRESULT Validate();			///< Validates the object. \b Errors: \ref KINE_E_NOTRANSFORM
+	HRESULT Invalidate();		///< Invalidates the object.
+	HRESULT IsValid();			///< Checks if the object is valid.
+
+/// @name Reproduction
+/// These functions reproduce the object creating its exact copy, including where applicable
+/// its internal structure, attributes and hierarchy of descendant objects. The reproduced
+/// object is the functionally identical copy of the original, but it may physically differ
+/// on the binary level.
+
+	/// Reproduces object by creating its functional copy and returning it in p
+	HRESULT Reproduce([out, retval] IKineObj3D **p);
+	/// The same as reproduce, but returns the pointer to the given interface
+	HRESULT ReproduceEx(REFIID iid, [out, retval, iid_is(iid)] IFWUnknown **p);
+	/// Returns S_OK if the object can be reproduced; S_FALSE otherwise
+	HRESULT CanReproduce();
+
+/// @name State Store/Retrieve
+/// This set of functions makes it possible to store the object state and then to retrieve it.
+/// PushState and PopState may be used in majority of typical situations, however push-pop operations
+/// must be kept in pair throughout entire hierarchy affected.
+/// otherwise StoreState/RetrieveState are provided.
+/// The state includes the contents of the local transform in this object and all the child nodes.
+
+	/// Pushes the local transform to an internal stack. Any child node states will be pushed as well.
+	HRESULT PushState();
+	/// Pops the local transform from an internal stack. Any child node states will be popped as well.
+	HRESULT PopState();
+	/// Removes any unused information on the stack used by PushState/PopState functions
+	HRESULT ClearStack();
+	/// Stores the local transform into the given buffer (\b more). Any child node states will be stored as well.
+	/// To retrieve the required buffer size without actual passing of any data set pBuf to NULL.
+	/// \param nBufSize: buffer size \param pBuf: buffer where the data are stored 
+	/// \param pnCount: the actual size of the data returned
+	/// \return FW_E_MEMOVERRUN if the buffer size passed in nBufSize to small to fit all the data
+	HRESULT StoreState(FWULONG nBufSize, [in, out, size_is(nBufSize), length_is(*pnCount)] BYTE *pBuf, [out] FWULONG *pnCount);
+	/// Retrieves the local transform from the given buffer (\b more). Any child node states will be retrieved as well (\b more).
+	/// \param nBufSize: buffer size \param pBuf: buffer where the data are stored 
+	/// \param pnCount: the actual size of the used portion of the buffer
+	/// \return FW_E_MEMOVERRUN if the buffer size passed in nBufSize to small to fit all the data
+	HRESULT RetrieveState(FWULONG nBufSize, [in, size_is(nBufSize)] BYTE *pBuf, [out] FWULONG *pnCount);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup kineplus
+/// \interface IKineChild
+/// KINE+ generic named object (hierarchy child or leaf).
+///
+/// Essential functionality for members of object structures.\n\n
+/// These are objects that have a Parent Object and a pair of Identifiers:
+/// - \b Id is a numerical form of unique identifier
+/// - \b Label is a "user-friendly", however less efficient, textual identifier (e.g. "l forearm")
+///
+/// Inherits IKineObj3D to provide basic 3D object functionality.
+///
+/// \remark
+/// There are more than one parent allowed, so a single object may be incorporated into several hierarchies.
+/// Since each parent maintains its own system of child ids and labels,
+/// they all create separate, independent namespaces.
+/// One of the parents is designated to be the Primary Parent (see IKineChild::OnParentNotify),
+/// and usually is the actual predecessor in the kinematic chain, while the other(s) may
+/// supply possibly more convenient labelling convention. 
+///
+/// \sa \ref KChain
+/// \sa FreeWillPlus::KineBone, an implementation class for kinematical chains / bone systems.
+///
+/// \return
+/// Functions may return following error codes:
+/// - \ref KINE_E_ROOTOBJERR if no parent set.
+/// - \ref KINE_E_OBJECTNOTFOUND if the object is not a child of the given parent
+/// - \ref KINE_E_LABELEXISTS (PutLabel and PutLabelEx only): the label already exists
+/// 
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(299A40E0-ACE7-4dc0-9A79-B4E6C4DCBFA5),
+	helpstring("KINE+ generic named object"),
+	pointer_default(unique)
+]
+interface IKineChild : IKineObj3D
+{
+	/// @name Property: the Parent
+	HRESULT GetParent([out, retval] IKineNode **p);			///< The Primary Parent, or S_FALSE if none set
+	HRESULT IsParent([in] IKineChild *p);					///< Tests either p is the Primary Parent for this object
+
+	/// @name Delete Operation
+	HRESULT Delete();	///< Deletes object from primary parent's nodes; does nothing if no primary parent
+
+	/// @name Properties: Names in the Namespace of the Primary Parent
+	HRESULT GetId([out, retval] FWULONG *pVal);				///< numerical identifier. \b Returns: see class description above
+	HRESULT GetLabel([out, retval, string] LPOLESTR *pVal);	///< text identifier. \b Returns: see class description above
+	HRESULT PutLabel([in, string] LPOLESTR newVal);			///< text identifier. \b Returns: see class description above
+
+	/// @name Properties: Names in the Namespace of a Non-Primary Parent
+	HRESULT GetIdEx([in] IKineNode *pParentEx, [out, retval] FWULONG *pVal);				
+				///< numerical identifier in pParentEx namespace. \b Returns: see class description above
+	HRESULT GetLabelEx([in] IKineNode *pParentEx, [out, retval, string] LPOLESTR *pVal);	
+				///< text identifier in pParentEx namespace.\b Returns: see class description above
+	HRESULT PutLabelEx([in] IKineNode *pParentEx, [in, string] LPOLESTR newVal);			
+				///< text identifier in pParentEx namespace. \b Returns: see class description above
+
+	/// @name Parental Notification
+	HRESULT OnParentNotify([in] IKineNode *pParent, [in, string] LPOLESTR pLabel, [in] FWULONG nId);
+		///< Primary Parent should call this function to store its pointer together with label and id, see \ref KChain
+	HRESULT OnParentUnnotify([in] IKineNode *pParent);
+		///< Primary Parent should call this function before destruction (or breaking parentship), see \ref KChain
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup kineplus
+/// \interface IKineNode
+/// KINE+ generic hierarchy node.
+///
+/// Inherits IKineChild to form a fully functional hierarchy node, e.g. kinematical chain.
+/// Contains tools to build, control and access the tree structure of inherited nodes.
+/// 
+/// \sa FreeWillPlus::KineBone class, the leading implementation.
+/// \sa Implementation in FreeWillPlus::KineBone
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(FAE7A725-89E6-4acb-A119-D52935D36A9E),
+	helpstring("KINE+ generic hierarchy node"),
+	pointer_default(unique)
+]
+interface IKineNode : IKineChild
+{
+	/// @name Tools with Fully Qualified Labels
+
+	HRESULT CreateUniqueLabel([in] LPOLESTR pLabel, [in] FWULONG nSize, [in, out, size_is(nSize)] LPOLESTR pUniqueLabel);
+	/// Creates a default un-initialised child node and adds it as a child at the given label (\b more). 
+	/// \param pLabel: child label; may be fully qualified (see \ref Naming) \retval *p created child
+	/// \return as in IKineNode::AddChildEx
+	HRESULT CreateChild([in] LPOLESTR pLabel, [out, retval] IKineNode **p);
+	/// Adds a given item as a child at the given label (\b more). 
+	/// \param pLabel: child label; may be fully qualified (see \ref Naming) \param p the child to be added
+	/// \sa IKineNode::AddChildEx
+	/// \return as in IKineNode::AddChildEx
+	HRESULT AddChild([in] LPOLESTR pLabel, [in] IKineChild *p);
+	/// Finds and returns the child at the given label (\b more).
+	/// \param pLabel: child label; may be fully qualified (see \ref Naming) \retval *p the child or NULL if not found
+	/// \sa IKineNode::GetChildEx
+	/// \return as in IKineNode::GetChildEx
+	HRESULT GetChild([in, string] LPOLESTR pLabel, [out, retval] IKineChild **p);
+	/// Finds and returns the child at the given label (\b more).
+	/// \param pLabel: child label; may be fully qualified (see \ref Naming) \retval *p the child or NULL if not found
+	/// Acts similar to \sa IKineNode::GetChild but returns no error code in case label cannot be resolved.
+	HRESULT CheckChild([in, string] LPOLESTR pLabel, [out, retval] IKineChild **p);
+	/// Tests if the child exists. (\b more).
+	/// \retval S_OK if the child exists or S_FALSE is not
+	HRESULT HasChild([in, string] LPOLESTR pLabel);
+	/// Deletes the child at the given label (\b more).
+	/// \param pLabel: child label; may be fully qualified (see \ref Naming)
+	/// \return as in IKineNode::GetChildEx
+	/// \sa \ref DelChildAt, \ref DelChildPtr
+	HRESULT DelChild([in, string] LPOLESTR pLabel);
+	/// Deletes all child nodes
+	HRESULT DelAll();
+	/// Renames the child at the given label (\b more). 
+	/// \param pLabel: child label; may be fully qualified (see \ref Naming) \param pNewLabel: the new label
+	/// \return 
+	/// - \ref KINE_E_LABELEXISTS if pNewLabel is already used
+	/// - and also as in IKineNode::GetChildEx
+	/// \sa \ref RenameChildPtr, \ref RenameChildAt
+	HRESULT RenameChild([in, string] LPOLESTR pLabel, [in, string] LPOLESTR pNewLabel);
+
+	/// @name Extended Functions
+
+	/// Extended form of IKineNode::AddChild (\b more). 
+	/// \param pLabel: child label; may be fully qualified (see \ref Naming) 
+	/// \param p the child to be added
+	/// \param bSetParentalDep set itself as a Primary Parent (see IKineChild::OnParentNotify) and invalidate the child
+	/// \retval *pParentNode the parent node of the inserted child
+	/// \retval *pnIndex the index of the inserted child (in *pParentNode namespace)
+	/// \returns:  
+	/// - \ref KINE_E_LABELEXISTS if other object already exists under this label
+	/// - \ref KINE_E_LABELNOTFOUND if the qualified label cannot be resolved to identify position in the hierarchy
+	/// - \ref KINE_E_EMPTYLABEL if the given label is empty
+	/// \remark Most often you will call this function instead of simpler \ref AddChild to pass
+	/// bSetParentalDep=FALSE. This enables to put an object more than once into the structure
+	/// retaining singular kinematic dependancy. Objects added in this way will not use the
+	/// kinematical parameters of its non-primary parent.
+	HRESULT AddChildEx([in] LPOLESTR pLabel, [in] IKineChild *p, [in] BOOL bSetParentalDep,
+		[out] IKineNode **pParentNode, [out] FWULONG *pnIndex);
+	
+	/// Extended form of IKineNode::GetChild (\b more).
+	/// \param pLabel: child label; may be fully qualified (see \ref Naming)
+	/// \param bQuiet: if set no error code returned even if the label cannot be resolved (output is NULL and function returns S_FALSE)
+	/// \retval pParentNode: the parent node or last link of a fully qualified name chain if child not found
+	/// \retval nId: id of a child, if found
+	/// \retval pRemaining: in case of a fully qualified label cannot be resolved in full, returns its remaining part
+	/// \retval *p: the child or NULL if not found
+	/// \returns:  
+	/// - \ref KINE_E_EMPTYLABEL if the given label is empty
+	/// - \ref KINE_E_LABELNOTFOUND if the qualified label not found or cannot be resolved 
+	HRESULT GetChildEx([in, string] LPOLESTR pLabel, BOOL bQuiet, 
+		[out] IKineNode **pParentNode, [out] FWULONG *nId, [out, string] LPOLESTR *pRemaining, [out, retval] IKineChild **p);
+
+	/// @name Pointer-Based Functions
+	
+	/// Gets information on a given child object (\b more). 
+	/// Get its label and its numerical id. \sa \ref KChain.
+	/// \returns \ref KINE_E_OBJECTNOTFOUND if child object not found
+	HRESULT GetChildInformation([in] IKineChild *pIKineChild, [out, string] LPOLESTR *p, [out] FWULONG *pnId);
+	/// Deletes the child node (\b more).
+	/// \param pChild: child node to be deleted
+	/// \returns \ref KINE_E_OBJECTNOTFOUND if child object not found
+	/// \sa \ref DelChild, \ref DelChildAt
+	HRESULT DelChildPtr([in] IKineChild *pChild);
+	/// Renames the child node (\b more). 
+	/// \param pChild: child node to be renamed \param pNewLabel a new label to be set
+	/// \return 
+	/// - \ref KINE_E_LABELEXISTS if pNewLabel is already used
+	/// - \ref KINE_E_OBJECTNOTFOUND if child object not found
+	/// - and also as in IKineNode::GetChildEx
+	/// \sa \ref RenameChild, \ref RenameChildAt
+	HRESULT RenameChildPtr([in] IKineChild *pChild, [in, string] LPOLESTR pNewLabel);
+
+	/// @name Index-Based Functions
+
+	/// Computes the child counter (\b more). 
+	/// \retval *nCount the number of immediate child nodes, including the already deleted ones.
+	/// \remark If any nodes have been deleted, the actual number of the still active child nodes may be lower.
+	HRESULT GetChildCount([out, retval] FWULONG *nCount);
+	/// Finds an object at a given id (index) (\b more). 
+	/// \param nId object's id \retval *p the resulting object
+	/// \returns: \ref FW_E_BADINDEX if nId is invalid
+	HRESULT GetChildAt([in] FWULONG nId, [out, retval] IKineChild **p);
+	/// Get label of an object at determined id (index) (\b more).
+	/// \param nId object's id \retval *p the label of the object
+	/// \returns: \ref FW_E_BADINDEX if nId is invalid
+	HRESULT GetLabelAt([in] FWULONG nId, [out, retval, string] LPOLESTR *p);
+	/// Deletes an object at determined id (index) (\b more).
+	/// \param nId object's id 
+	/// \returns: \ref FW_E_BADINDEX if nId is invalid
+	/// \sa \ref DelChild, \ref DelChildPtr
+	HRESULT DelChildAt([in] FWULONG nId);
+	/// Renames an at determined id (index) (\b more).
+	/// \param nId object's id \param pNewLabel a new label to be set
+	/// \returns: 
+	/// - \ref FW_E_BADINDEX if nId is invalid
+	/// - \ref KINE_E_LABELEXISTS if pNewLabel is already used
+	/// \sa \ref RenameChild, \ref RenameChildPtr
+	HRESULT RenameChildAt([in] FWULONG nId, [in, string] LPOLESTR pNewLabel);
+
+	/// @name Other Functions
+
+	/// Creates a flat namespace (\b more).
+	/// Scans all the structure of descendant nodes and adds the reference as the immediate child nodes
+	/// of the pNamespace node. 
+	/// This operation does not change the parentship of the descendant nodes
+	HRESULT CreateFlatNamespace();
+
+	/// Creates an IKineEnumChildren object that enumerates all the direct child nodes of the calling node
+	HRESULT EnumAllDescendants([out, retval] IKineEnumChildren **p);
+
+	/// Creates an IKineEnumChildren object that recursively enumerates all the descendant nodes using depth-first search approach
+	HRESULT EnumChildren([out, retval] IKineEnumChildren **p);
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup kineplus
+/// \interface IKineEnumChildren 
+/// KINE+ child object enumerator.
+///
+/// Child/Descendant Node Enumeration Object
+///
+/// Use this object to query for child or descendant nodes of a given object.
+/// An instance of this class may only be created with either IKineNode::EnumChildren or
+/// IKineNode::EnumAllDescendants to enumerate, responsibly, direct child or all descendant nodes.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(7C05505B-DA56-4084-963C-929AB0901498),
+	helpstring("KINE+ child object enumerator"),
+	pointer_default(unique)
+]
+interface IKineEnumChildren : IFWUnknown
+{
+	/// Returns S_OK and the next item in the sequence as *p, or S_FALSE and NULL if no items remaining
+	HRESULT Next([out, retval] IKineChild **p);
+	/// Skips over the next specified number of elements in the enumeration sequence 
+	HRESULT Skip([in] FWULONG);
+	/// Resets to the beginning of the enumeration sequence
+	HRESULT Reset();
+	/// Creates another enumerator that contains the same enumeration state as the current one
+	HRESULT Clone([out] IKineEnumChildren **ppEnum);
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup kineplus
+/// @name Target Modes for IKineTargetedObj::PutConfig and IKineTargetedObj::GetConfig 
+enum KINE_TARGET
+{
+	/// Target is the parent node, with object orbiting around as a child node;
+	/// this is the default mode allowing rotating camera/light pointing at the immobile target;
+	/// the orbiting object node will be created and managed automatically
+	KINE_TARGET_INCENTER,
+	/// Target is orbiting around the object which is a parent node
+	/// allows to move the target while the object rotates to point at it;
+	/// the orbiting target node will be created and managed automatically
+	KINE_TARGET_ORBITING,
+	/// Both object and target are independent peers (have common parent);
+	/// the target node will be created and managed automatically
+	KINE_TARGET_PEER,
+	/// Target is set to an arbitrary remote object is is not managed by the object
+	KINE_TARGET_REMOTE
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup kineplus
+/// \interface IKineTargetedObj
+/// KINE+ target directed object.
+///
+/// This interface defines a pair of objects: the actual object and a target
+/// toward which it is oriented. 
+/// Usually implemented together with IKineNode and IKineObj3D, so the objects
+/// are easily inserted into kinematical structures, the functionality defined
+/// in this interface offers a different metaphore for 3D orientation,
+/// using notions as the position, target and direction, where
+/// position + direction = target.
+///
+/// This interface is used by some scene objects like lights and cameras,
+/// see ISceneLightDir, ISceneLightSpot, ISceneCamera and their implementations in
+/// FreeWillPlus::SceneLightDir, FreeWillPlus::SceneLightSpot and FreeWillPlus::SceneCamera.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(6EE341D6-9F02-4c48-82E5-9F338D65A634),
+	helpstring("KINE+ target directed object"),
+	pointer_default(unique)
+]
+interface IKineTargetedObj : IFWUnknown
+{
+/// @name Simple Properties in 3D
+///	Target Position = Object Position + Direction Vector
+
+	HRESULT PutPosition(FWVECTOR);					///< Puts the Position of the Targeted Object
+	HRESULT GetPosition([out, retval] FWVECTOR*);		///< Gets the Position of the Targeted Object
+	HRESULT PutTarget(FWVECTOR);						///< Puts the Position of the Target = Position + Direction
+	HRESULT GetTarget([out, retval] FWVECTOR*);		///< Gets the Position of the Target = Position + Direction
+	HRESULT PutDirection(FWVECTOR);					///< Puts the Direction Vector = Target - Position
+	HRESULT GetDirection([out, retval] FWVECTOR*);	///< Gets the Direction Vector = Target - Position
+	HRESULT PutUpVector(FWVECTOR);					///< Puts the Up Vector - in object that can tilt
+	HRESULT GetUpVector([out, retval] FWVECTOR*);		///< Gets the Up Vector - in object that can tilt
+
+	HRESULT GetLookAtLHTransform([out, retval] ITransform**);
+	HRESULT GetLookAtRHTransform([out, retval] ITransform**);
+
+/// @name Kinematical Configuration
+/// These function define how both object and its target are placed
+
+	/// Sets the kinematic configuration to one of \ref KINE_TARGET modes; pRemoteTarget used only with \ref KINE_TARGET_REMOTE mode 
+	HRESULT PutConfig(enum KINE_TARGET mode, IKineNode *pRemoteTarget);
+	/// Gets the configuration setting; notice that *pRemoteTarget will be set NULL unless mode is \ref KINE_TARGET_REMOTE
+	HRESULT GetConfig([out] enum KINE_TARGET *pMode, [out] IKineNode **pRemoteTarget);
+	/// Gets the paired node, \ref GetPairedNode "look here for details".
+	/// The result of this function depends on the current KINE_TARGET mode (see \ref PutConfig):
+	/// - KINE_TARGET_INCENTER: returns automatically created orbiting object node
+	/// - KINE_TARGET_ORBITING: returns automatically created orbiting target node
+	/// - KINE_TARGET_PEER: returns automatically created peer target node
+	/// - KINE_TARGET_REMOTE: returns the target set by the user in \ref PutConfig (the same is returned by \ref GetConfig)
+	HRESULT GetPairedNode([out, retval] IKineNode**);
+
+	/// Binds the Up Vector with Target (TRUE) or Object (FALSE, default)
+	HRESULT PutTiltWithTarget(BOOL);
+	/// Retuens S_OK if the Up Vector is bound with the Target or S_FALSE if it is bound with the object (default)
+	HRESULT GetTiltWithTarget();
+};
+
+//@}

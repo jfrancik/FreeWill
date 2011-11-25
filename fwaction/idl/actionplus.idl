@@ -1,0 +1,275 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// ACTION+ IDL file
+/// \file 
+/// Generic Animation Action Interface
+
+import "oaidl.idl";
+import "common.idl"; 
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup actionplus ACTION+ Module
+/// @{
+/// Generic Animation Action Interface
+///
+/// This module is on an early design stage and is not fully documented yet...
+///
+/// \section actionimpl Implementation Remarks
+/// No implementation available...
+
+interface IAction;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @name ACTION+ Common Events Codes
+/// Commonly used event codes; meaning provided here is a suggestion only: 
+/// individual actions may use them differently
+enum ACTION_EVENTS
+{
+	EVENT_UNSUBSCRIBE = 1,	///< Unsubscribe called (no subscription required)
+	EVENT_SUSPENDED,		///< Suspend called (no subscription required)
+	EVENT_RESUMED,			///< Resume called (no subscription required)
+
+	EVENT_BEGIN = 0x0100,	///< beginning of the action perform
+	EVENT_END,				///< end of the action perform
+	EVENT_SUCCESS,			///< achieving something successfully; notice that the action may be continued afterwards
+	EVENT_FAIL,				///< failing to do something; notice that the action may be continued afterwards
+	EVENT_ABEND,			///< abnormal end
+	EVENT_TICK,				///< clock tick
+	EVENT_RTICK,			///< reversed clock tick
+	EVENT_MILESTONE,		///< something important; a mile stone
+	EVENT_COLLISION,		///< collision detected
+	EVENT_PROXIMITY,		///< proximity detected
+	EVENT_TOUCH,			///< touch occurred; touching is differs from colliding in that it is desired
+	EVENT_SPECIAL,			///< special event...
+
+
+	EVENT_USER = 0x1000		///< with this code user-defined codes start
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @name ACTION+ Subscription Flags
+/// Flags used in IAction::Subscribe
+enum ACTION_SUBSCRIPTION_FLAGS
+{
+	ACTION_ANY		= 0x00,	///< Trigger the event regardless of SubCode / Trigger values (see ACTION_EVENT and ACTION_SUBS)
+	ACTION_EQ		= 0x01,	///< Trigger the event only if SubCode == Trigger value (see ACTION_EVENT and ACTION_SUBS)
+	ACTION_LTE		= 0x02,	///< Trigger the event only if SubCode <= Trigger value (see ACTION_EVENT and ACTION_SUBS)
+	ACTION_GTE		= 0x03,	///< Trigger the event only if SubCode >= Trigger value (see ACTION_EVENT and ACTION_SUBS)
+
+	ACTION_AUTO		= 0x00,	///< Unsubscribes action automatically when IsAlive returns FALSE
+	ACTION_ONCE		= 0x10,	///< Unsubscribes action after first time it is triggered
+	ACTION_MANUAL	= 0x20,	///< Imposes the action to be unsubscribed manually
+	ACTION_MORITURI = 0x30,	///< Reserved for internal use by IAction::Die function
+
+	ACTION_WEAKPTR	= 0x40,	///< Imposes the subscribers pointer to be weak - no AddRef / Release calls - to avoid auto-references
+
+	ACTION_NOTIME	= 0x80,	///< Set this flag to prevent default operations on SubCodes to replace TimeStamp value - will cause TimeStamp to be always the real time
+
+	ACTION_CALL		= 0x0000,///< Triggers regular HandleEvent call
+	ACTION_RESUME	= 0x0100,///< Triggers IAction::Resume function call
+	ACTION_SUSPEND	= 0x0200,///< Triggers IAction::Suspend function call
+
+	ACTION_MASK_TRIGGER	= 0x03,		///< Mask for Trigger Mode values: ACTION_ANY, ACTION_EQ, ACTION_LTE and ACTION_GTE
+	ACTION_MASK_LTE_GTE	= 0x02,		///< (ACTION_LTE | ACTION_GTE) & ~ACTION_ANY & ~ACTION_EQ
+	ACTION_MASK_MODE	= 0x30,		///< Mask for Unsubscription Mode values: ACTION_AUTO, ACTION_ONCE, ACTION_MANUAL and ACTION_MORITURI
+	ACTION_MASK_USE		= 0x0300,	///< Mask for Usage values: ACTION_CALL, ACTION_RESUME and ACTION_SUSPEND
+
+	ACTION_RESERVED_1	= 0x04,		///< Reserved for internal use
+	ACTION_RESERVED_2	= 0x08,		///< Reserved for internal use
+	ACTION_RESERVED_3	= 0x0400,	///< Reserved for internal use
+	ACTION_RESERVED_4	= 0x0800,	///< Reserved for internal use
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @name ACTION+ Module-Specific Error Codes
+/// Error codes used by classes in this module only
+enum ACTION_ERRORS
+{
+	ACTION_E_CANNOTSUBSCRIBE = FW_E_CLASS_ERRORS,	///< Action cannot subscribe for the given event
+	ACTION_E_CANNOTSETUP,							///< Action cannot set-up for the given verb
+	ACTION_E_INVALIDPERIOD,							///< Invalid value for action period
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @name ACTION+ Time Envelope Types
+/// Defines the envelope types
+enum ACTION_ENVELOPE
+{
+	ACTION_ENV_REWRITE_FROM_SENDER,	///< default value: tries to copy the envelope from the sender or originator of the event
+	ACTION_ENV_NONE,			///< no envelope; velocity is constant
+	ACTION_ENV_PARA,			///< parabolic envelope (acceleration is constant), provide ease-in, ease-out as fractions of 1 (e.g. 0.1, 0.85)
+	ACTION_ENV_SIN,				///< sinusoidal envelope (pseudo-jerk), provide ease-in, ease-out as fractions of 1 (e.g. 0.1, 0.85)
+	ACTION_ENV_PARA_TIME,		///< as ACTION_ENV_PARA, ease-in and ease-out specified in miliseconds
+	ACTION_ENV_SIN_TIME,		///< as ACTION_ENV_SIN, ease-in and ease-out specified in miliseconds
+	ACTION_ENV_PHYSICAL,		///< motion specified using the distance, max speed, max acceleration and jerk
+};
+
+struct ACTION_ENVELOPE_DATA
+{
+	enum ACTION_ENVELOPE type;
+	[switch_type(enum ACTION_ENVELOPE), switch_is(type)] 
+	union
+	{
+		[case(ACTION_ENV_PARA, ACTION_ENV_SIN)]				struct { FWFLOAT fEaseIn; FWFLOAT fEaseOut; };
+		[case(ACTION_ENV_PARA_TIME, ACTION_ENV_SIN_TIME)]	struct { FWULONG timeEaseIn; FWULONG timeEaseOut; };
+		[case(ACTION_ENV_PHYSICAL)]							struct { FWFLOAT fS, fV, fA, fJ; };
+		[default]											struct { FWFLOAT f1, f2, f3, f4;};
+	};
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// Subscription Structure
+/// Contains information about a single subscription
+struct ACTION_SUBS
+{
+	IAction *pOriginator;	///< the originator - action which raises the subscribed event
+	IAction *pSubscriber;	///< the subscriber - action which handles the subscribed event
+	FWULONG nEvent;			///< the event code
+	FWULONG nFlags;			///< flags - see ACTION_XXXX flags
+	FWULONG nTrigger;		///< the Trigger value used to select events by their SubCodes
+	FWULONG nId;			///< event id - value passed directly from subscrition to HandleEvent
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// Event Structure
+/// Defines the current event.
+/// \remark pSender is automatically set to 'this' by IAction::RaiseEvent and IAction::RaiseEventEx
+/// \remark pOriginator is set to 'this' if NULL, otherwise IAction::RaiseEventEx does not change it
+/// \remark
+/// \remark nEvent, nSubCode and pPtr are to be supplied with each IAction::RaiseEvent and IAction::RaiseEventEx call
+/// \remark pSubs points to the information provided when the action was subscribed.
+struct ACTION_EVENT
+{
+	FWULONG nTimeStamp;			///< Time Stamp - time elapsed since the animation started, in miliseconds
+	FWULONG nEvent;				///< Event code (see ACTION_EVENTS)
+	FWULONG nSubCode;			///< Event sub-code
+	FWULONG nReserved;			///< Additional information
+	struct ACTION_SUBS *pSubs;	///< Subscription information
+	struct ACTION_EVENT *pPrev;	///< Previous event in the subscription chain; NULL if pSubs == NULL
+};
+
+typedef int (*HANDLE_EVENT_HOOK_FUNC)(struct ACTION_EVENT *pEvent, IAction *pAction, FWULONG nParam, void *pParam);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// Abstraction of an Animation Action
+[
+	object,
+	uuid(32620B8E-01E6-4f67-9DD2-32F4D73A41C2),
+	helpstring("ACTION+ Generic Animation Action"),
+	pointer_default(unique)
+]
+interface IAction : IFWUnknown
+{
+	/// @name Subsription
+
+	/// Subscribes other actions to events generated by this action
+	HRESULT Subscribe(IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWULONG nTrigger, FWULONG nId, [out, retval] struct ACTION_SUBS **pHandle);
+	/// Unsubscribes an action of a given event
+	HRESULT UnSubscribe(FWULONG nTimeStamp, struct ACTION_SUBS *pSubs);
+	
+	HRESULT UnSubscribeAll();								///< Unsubscribes all subscribers
+	
+	HRESULT GetSubscriptionCount([out, retval] FWULONG*);	///< Returns the total count of all subscribed actions, if possible user much more efficient IsSubscriptionCount/HasAnySubscriptions function
+	[local] FWULONG SubscriptionCount();					///< Returns the total count of all subscribed actions, if possible user much more efficient IsSubscriptionCount/HasAnySubscriptions function
+	HRESULT IsSubscriptionCount();							///< S_OK if SubscriptionCount() > 0, S_FALSE otherwise; this function is much more efficient than (Get)SubscriptionCount
+	[local] BOOL AnySubscriptionsLeft();					///< same as IsSubscriptionCount, returns TRUE or FALSE (instead of S_OK or S_FALSE)
+
+	/// @name Action Style
+
+	HRESULT SetStyleString(FWSTRING p);					///< Sets the Style String; individual styles should be divided with semicolons or spaces, eg. L"left; up"
+	HRESULT GetStyleString([out, retval] FWSTRING *p);	///< Retrieves the Style String; individual styles are divided with semicolons or spaces, eg. L"left; up"
+	HRESULT IsStyle(FWSTRING strStyle);					///< Returns S_OK if the specified style is present in the object's Style String; S_FALSE otherwise
+
+	/// @name Suspend/Resume
+
+	HRESULT Suspend(FWULONG nTimeStamp);	///< Suspends the action - no events are handled in the Suspend mode (\ref HandleEvent not called)
+	HRESULT Resume(FWULONG nTimeStamp);		///< Resumes after the action life cycle was suspended
+    HRESULT IsSuspended();					///< Returns S_OK if the action is in \ref Suspend mode; S_FALSE otherwise
+
+	/// @name Time, Phase and Life Cycle Functions
+
+	HRESULT SetStartTime(FWULONG nStartTime);		///< Sets the time when the action should be started, in miliseconds
+	HRESULT GetStartTime([out, retval] FWULONG*);	///< Returns the time when the action should be started, in miliseconds
+	HRESULT GetPeriod([out, retval] FWULONG*);		///< Returns the period (i.e. completion time), in miliseconds
+	HRESULT GetCompleteTime([out, retval] FWULONG*);///< Returns the time by the action should be completed, in miliseconds
+	[local] FWULONG StartTime();					///< Returns the time when the action should be started, in miliseconds
+	[local] FWULONG Period();						///< Returns the period (i.e. completion time), in miliseconds
+	[local] FWULONG CompleteTime();					///< Returns the time by the action should be completed, in miliseconds
+
+	HRESULT IsStarted(struct ACTION_EVENT *pEvent);	///< S_OK is returned if the event's time stamp is greater or equal to the Start Time, S_FALSE otherwise
+	HRESULT IsOverdue(struct ACTION_EVENT *pEvent);	///< S_OK is returned if the event's time stamp is greater or equal to the Start Time + Period, S_FALSE otherwise
+	HRESULT IsMorituri(struct ACTION_EVENT *pEvent);///< 
+													///< S_OK is returned if the event is to be unsubscribed after handling, S_FALSE otherwise (\b more).
+													///< S_OK value is returned if either of these conditions if fulfilled:
+													///< - event is subscribed with ACTION_ONCE flag,
+													///< - the Die function has been called,
+													///< - event is subscribed with ACTION_AUTO flag, and the event's time stamp
+													///<   is greater or equal than Start Time + Period.
+
+	HRESULT Die(struct ACTION_EVENT *pEvent);		///< Sets the action to un-subscribe the provided event just after handling it
+
+
+	/// Returns the current time of action in miliseconds; excludes time when suspended
+	HRESULT GetTime(struct ACTION_EVENT *pEvent, [out, retval] FWULONG*);
+	/// Returns the phase factor [0..1] of the action; Phase = ApplyEnvelope(Time)
+	HRESULT GetPhase(struct ACTION_EVENT *pEvent, [out, retval] FWFLOAT*);
+	/// Returns the current time of action in miliseconds; excludes time when suspended
+	[local] FWULONG Time(struct ACTION_EVENT *pEvent);
+	/// Returns the phase factor [0..1] of the action; Phase = ApplyEnvelope(Time)
+	[local] FWFLOAT Phase(struct ACTION_EVENT *pEvent);
+	/// Returns the delta of the phase factor since the last call: Delta = Phase - PrevPhase (\b more).
+	/// The "last call" time is measured since the previous call to either GetDeltaPhase or GetProgPhase;
+	/// Avoid using both GetDeltaPhase and GetProgPhase in the same action and call one of these actions
+	/// exactly once in every animation cycle, when appropriate. Otherwise additional calls could affect
+	/// the "last call time". Subject to the envelope settings.
+	HRESULT GetDeltaPhase(struct ACTION_EVENT *pEvent, [out, retval] FWFLOAT*);
+	/// Returns progressive phase, in relation to the time of the previous call (\b more).
+	/// ProgPhase = (Time - TimePrev) / (Period - TimePrev).
+	/// The "last call" time is measured since the previous call to either GetDeltaPhase or GetProgPhase;
+	/// Avoid using both GetDeltaPhase and GetProgPhase in the same action and call one of these actions
+	/// exactly once in every animation cycle, when appropriate. Otherwise additional calls could affect
+	/// the "last call time". Subject to the envelope settings.
+	HRESULT GetProgPhase(struct ACTION_EVENT *pEvent, [out, retval] FWFLOAT*);
+
+	/// @name Time Envelope Functions
+
+	/// Sets sinusoidal motion envelope; ease-in and ease-out to be provided as fractions of one, e.g. (0.1, 0.85)
+	HRESULT SetSinusoidalEnvelope(FWFLOAT fEaseIn, FWFLOAT fEaseOut);
+	/// Sets parabolic motion envelope; ease-in and ease-out to be provided as fractions of one, e.g. (0.1, 0.85)
+	HRESULT SetParabolicEnvelope(FWFLOAT fEaseIn, FWFLOAT fEaseOut);
+	/// Sets sinusoidal motion envelope; ease-in and ease-out to be provided in milliseconds from the start of action, e.g. (500, 4500)
+	HRESULT SetSinusoidalEnvelopeT(FWULONG timeEaseIn, FWULONG timeEaseOut);
+	/// Sets parabolic motion envelope; ease-in and ease-out to be provided in milliseconds from the start of action, e.g. (500, 4500)
+	HRESULT SetParabolicEnvelopeT(FWULONG timeEaseIn, FWULONG timeEaseOut);
+	/// Sets parabolic motion envelope by providing values for the distance (s), velocity (v), acceleration (a) and jerk (j); use 0 for v, a, or j is not specified
+	HRESULT SetPhysicalEnvelopeT(FWFLOAT s, FWFLOAT v, FWFLOAT a, FWFLOAT j);
+	/// Sets no motion envelope (uniform motion)
+	HRESULT SetNoneEnvelope();
+	/// Deprecated function: sets either sinusoidal or parabolic envelope
+	HRESULT SetEnvelope(enum ACTION_ENVELOPE, FWFLOAT fEaseIn, FWFLOAT fEaseOut);
+
+	/// Sets the action envelope: extended version, with keeping at initial and terminating phases
+	HRESULT SetEnvelopeEx(struct ACTION_ENVELOPE_DATA*);
+	/// Gets the action envelope description
+	HRESULT GetEnvelope(struct ACTION_EVENT *pEvent, [out] struct ACTION_ENVELOPE_DATA*);
+	/// Applies the envelope to the given value of time; returns a scaled value of 0.0 .. 1.0
+	HRESULT ApplyEnvelope(struct ACTION_EVENT *pEvent, FWULONG timeIn, FWULONG timeRef, [out, retval] FWFLOAT *pfOut);
+
+	/// @name Events
+
+	/// Handles events sent by a sender action to its subscriber
+	HRESULT HandleEvent(struct ACTION_EVENT *pEvent);
+	/// Sends event directly to the object
+	HRESULT SendEvent(FWULONG nTimeStamp, FWULONG nEvent, FWULONG nSubCode, FWULONG nReserved);
+	/// Sends event directly to the object
+	HRESULT SendEventEx(struct ACTION_EVENT *pEvent);
+	/// Sends event notification to all the registered subscribers
+	HRESULT RaiseEvent(FWULONG nTimeStamp, FWULONG nEvent, FWULONG nSubCode, FWULONG nReserved);
+	/// Sends event notification to all the registered subscribers
+	HRESULT RaiseEventEx(struct ACTION_EVENT *pEvent);
+
+	/// @name Callback
+	[local] HRESULT SetHandleEventHook(HANDLE_EVENT_HOOK_FUNC pfHook, FWULONG nParam, void *pParam);
+};
+
+/// @}
+

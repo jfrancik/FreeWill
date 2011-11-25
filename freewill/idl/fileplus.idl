@@ -1,0 +1,171 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// FILE+ IDL file
+/// \file 
+/// File Input and Export Engine
+
+import "rndrplus.idl";
+import "sceneplus.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup fileplus FILE+ Module
+/// @{
+/// File Input and Export Engine
+///
+/// Usually the only interface the user should be familiar with is the IFileLoader.
+/// It provides a convenient function capable to load the whole scene as well as
+/// its selected components. By default they locate and create the underlying
+/// IFileIn, appropriate for the given file format, automatically. A property for
+/// manual setting the input file is also provided.
+///
+/// @section fileimp Load form File
+/// The File Loader engine is split into two work interfaces. The third interfaces has been added
+/// to provide FreeWill+ oriented loading process and convenient user interface,
+/// and in most cases is the only one the user will ever directly use.
+/// - The IFileIn knows how to read files of the given format. There should be
+///	  a separate class defined for every file format. The IFileIn objects
+///	  then pass all the data read to IFileSink. They are not responsible for
+///	  creating any client objects.
+/// - The IFileSink is an abstract interpreter of the data passed from the IFileIn.
+///	  The individual methods are called by the IFileIn as callback functions,
+///	  while the file is read and the data become available.
+/// - The IFileLoader is the user interface that enables loading whole scenes as well as
+///	  its selected components (see the Detailed Description above). The classes implementing
+///	  IFileLoader usually also implement IFileSink, and are capable of automatic creation
+///	  of the IFileIn; thus this is usually the only interface directly used by the user.
+///
+/// \section fileimpl Implementation Remarks
+/// The current implementation involves FreeWillPlus::FileLoader and FreeWillPlus::StdFileIn.
+/// Both classes are likely to remain unchanged as long as '3D' file format is used.
+
+interface IFileSink;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @name FILE+ Module-Specific Error Codes
+/// Error codes used by classes in this module only
+enum FILE_ERRORS
+{
+	FILE_E_FILESYSTEM = FW_E_CLASS_ERRORS,	///< File system error: %s
+	FILE_E_FILESYNTAX,						///< Syntax error in file: %s
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// Abstraction of a file: objects that know how to read files of the given format. 
+/// There may be a separate class defined for every file format.
+/// The IFileIn objects then pass all the data read to IFileSink. 
+/// They are not responsible for creating any client objects.
+[
+	object,
+	uuid(25E02CAB-2D1D-4f3a-86C5-524D431873ED),
+	helpstring("FILE+ Input File"),
+	pointer_default(unique)
+]
+interface IFileIn : IFWUnknown
+{
+	HRESULT Read(IFileSink*, LPOLESTR pFilename);	///< Reads the given file passing all the data to the IFileSink object
+};
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// Abstract interpreter of the data passed from the IFileIn.
+/// The individual methods are called by the IFileIn as callback functions,
+///	while the file is read and the data become available.
+[
+	object,
+	uuid(6F082634-2335-4bdd-B626-ABFFF21A6904),
+	helpstring("FILE+ Input Sink Interface"),
+	pointer_default(unique)
+]
+interface IFileSink : IFWUnknown
+{
+	/// @name Reading the entire scene
+	HRESULT OnBeginScene(LPOLESTR szName, LPOLESTR szFormat);		///< Called before reading the entire scene into IRenderer
+	HRESULT OnEndScene();											///< Called when the scene completely read
+
+	/// @name Reading the Scene Meshed Object main node
+	HRESULT OnBeginObject(LPOLESTR szName, LPOLESTR szClass);		///< Called before reading a Scene Meshed Object
+	HRESULT OnEndObject();											///< Called when the Scene Meshed Object completely read
+
+	/// @name Reading a kinematic or mesh node
+	HRESULT OnBeginNode(LPOLESTR szName, LPOLESTR szClass,
+		FWMATRIX m, FWVECTOR vPos, FWQUAT qRot, FWVECTOR vScale, BOOL bVisible);///< Called before reading a kinematic or mesh node
+	HRESULT OnEndNode();											///< Called when the kinematic or mesh node completely read
+
+	/// @name Reading the bounding box data
+	HRESULT OnBB(FWVECTOR vMin, FWVECTOR vMax);							///< Called when bounding box data are read
+
+	/// @name Reading the mesh internals
+	HRESULT OnBeginMesh(FWULONG nVertsCount, FWULONG nFacesCount, FWULONG nTexVertsCount);	
+																	///< Called before reading mesh data
+	HRESULT OnEndMesh();											///< Called when the mesh data completely read
+	HRESULT OnVertex(FWVECTOR vVertex, FWULONG nBonesCount, LPOLESTR *ppsBoneNames, FWFLOAT *pfWeights);	
+																	///< Called when vertex data are read
+	HRESULT OnTexVertex(FWVECTOR vTexVector);							///< Called when texture vertex data are read
+	HRESULT OnFace(FWULONG iVertexA, FWULONG iVertexB, FWULONG iVertexC, 
+					   FWULONG iTexVertexA, FWULONG iTexVertexB, FWULONG iTexVertexC,
+					   FWVECTOR *pvNormals);							///< Called when face data are read
+
+	/// @name Reading various objects
+	HRESULT OnLight(LPOLESTR szName, LPOLESTR szClass,
+		BOOL bIsTarget, FWVECTOR vEye, FWVECTOR vAtDir, 
+		FWCOLOR cColor, FWFLOAT fPower, BOOL bActive);					///< Called when lighting data are read
+	HRESULT OnCamera(LPOLESTR szName, LPOLESTR szClass, 
+		BOOL bIsTarget, FWVECTOR vEye, FWVECTOR vAtDir, FWVECTOR vUp,
+		FWFLOAT fFOV, FWFLOAT fClipNear, FWFLOAT fClipFar, FWFLOAT fDistance, 
+		BOOL bIsOrtho);												///< Called when camera data are read
+	HRESULT OnMaterial(FWCOLOR cAmbient, FWCOLOR cDiffuse, FWCOLOR cSpecular,
+		FWFLOAT fShininess, FWFLOAT fShinStrength, FWFLOAT fOpacity, 
+		FWFLOAT fSelfIllumination, BOOL bSelfIllumColorOn, FWCOLOR cSelfIllumColor, 
+		BOOL bTwoSided, BOOL bTextured);							///< Called when material data are read
+	HRESULT OnTexture(LPOLESTR szName, LPOLESTR szType, 
+		BYTE* pData, FWULONG nSize, FWFLOAT fUTile, FWFLOAT fVTile);		///< Called when texture data are read
+	HRESULT OnLongProperty(LPOLESTR szName, LONG);					///< Called when LONG attribute is read
+	HRESULT OnFloatProperty(LPOLESTR szName, FWFLOAT);				///< Called when FWFLOAT attribute is read
+	HRESULT OnStringProperty(LPOLESTR szName, LPOLESTR);			///< Called when LPOLESTR attribute is read
+	HRESULT OnVectorProperty(LPOLESTR szName, FWVECTOR);				///< Called when FWVECTOR attribute is read
+	HRESULT OnQuatProperty(LPOLESTR szName, FWQUAT);					///< Called when FWQUAT attribute is read
+	HRESULT OnColorProperty(LPOLESTR szName, FWCOLOR);				///< Called when FWCOLOR attribute is read
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// Enables loading whole scenes as well as its selected components. 
+/// The classes implementing IFileLoader usually also implement IFileSink, 
+/// and are capable of automatic creation of the IFileIn; 
+/// thus this is usually the only interface directly used by the user.
+[
+	object,
+	uuid(E3C945C7-1A13-4ef3-9979-45F2A458E0EC),
+	helpstring("FILE+ File Loader"),
+	pointer_default(unique)
+]
+interface IFileLoader : IFWUnknown
+{
+	/// @name Load Operations
+	/// In most cases one of the functions listed here are the only call required to load object(s).
+	/// Both IScene and ISceneObject objects must be created and initialised with valid,
+	/// platform-compatible buffers or \ref FW_E_NOTREADY error will be generated.
+	
+	/// Loads the whole scene from a file
+	HRESULT LoadScene(LPOLESTR pFilename, IScene *pScene);
+	/// Loads a single SceneObject from a file (pName is the label of the object required)
+	HRESULT LoadObject(LPOLESTR pFilename, LPOLESTR pName, ISceneObject *pObject);
+
+	/// @name The Tuning
+	/// The following properties may be used to tune the loader machinery.
+	/// - Some imported data may contain standard prefixes in all bone names; to cut them off set the CutPrefix
+	/// - 3DStudio usually prefixes all the bone names with the Meshed Object's name (eg. 'Bip01', 'Bip01 Pelvis').
+	///	  If you want to cut these prefixes off, set the CutPrefixAuto flag (set by default)
+	HRESULT PutCutPrefix(LPOLESTR p);					///< Puts the standard prefix to be cut off the bone names (CutPrefixAuto must be set off)
+	HRESULT GetCutPrefix([out, retval] LPOLESTR *p);	///< Gets the standard prefix cut off the bone names (CutPrefixAuto must be set off)
+	HRESULT PutCutPrefixAuto(BOOL b);					///< Gets the binary flag meaning that Meshed Object name should be automatically cut off the bone names
+	HRESULT GetCutPrefixAuto([out, retval] BOOL *p);	///< Puts the binary flag meaning that Meshed Object name should be automatically cut off the bone names
+
+	/// @name Configuring the Input File
+	HRESULT CreateDefFile(LPOLESTR pFilename);	///< Creates the input file IFileIn object appropriate for the file. Access it with IFileLoader::GetFile.
+	HRESULT GetFile([out, retval] IFileIn**);	///< Gets the input file
+	HRESULT PutFile([in] IFileIn*);				///< Puts the input file
+};
+
+/// @}
+

@@ -1,0 +1,200 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// TRANS+ IDL file
+/// \file 
+/// 3D transformation interface, see \ref transplus
+
+import "common.idl"; 
+
+/// @defgroup transplus TRANS+ Module
+/// @{
+/// This module defines the 3D transformation interface.
+///
+/// The 3D transformation will usually be implemented as a matrix or quat+vector forms
+///
+///
+/// \section TransImpl Implementation Remarks
+/// The standard implementation class, FreeWillPlus::TransMatrix, is matrix-based
+/// and contains no support for hardware accelerators, however this class is very
+/// likely to be replaced in future extensions with quaternion-based class
+/// or hardware-accelerated class.
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Assumption:
+// all [in], [in, out] and [out, retval] pointers must be valid: the implementation has no need to validate them
+// all [out] pointers may be NULL pointers: the implementation must not assign any values in such case
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup transplus
+/// @name RENDER+ Module-Specific Error Codes
+/// Error codes used by classes in this module only
+enum TRANS_MODES
+{
+	TRANS_REGULAR = 0,			///< Regular multiplication: T = X * T
+	TRANS_INVERTED = 1,			///< Multiplication by an inverted operand, T = (X^-1) * T
+	TRANS_RIGHT_SIDE = 2,		///< Multiplication with the operand put on the left side of the sign: T = T * X
+	TRANS_LEFT_SIDE = 4,		///< The same as TRANS_REGULAR
+	TRANS_BOTH_SIDES = TRANS_RIGHT_SIDE | TRANS_LEFT_SIDE,	///< Multiplication with the operand and its inverse put on both sides of the sign: T = X * T * (X^-1)
+	TRANS_RIGHT_SIDE_INVERTED = TRANS_RIGHT_SIDE | TRANS_INVERTED,	///< TRANS_RIGHT_SIDE and TRANS_INVERTED combined: T = T * (X^-1)
+	TRANS_BOTH_SIDES_INVERTED = TRANS_BOTH_SIDES | TRANS_INVERTED,	///< TRANS_BOTH_SIDES and TRANS_INVERTED combined: T = (X^-1) * T * X
+
+	TRANS_MASK = 7				///< Multiply Mode Mask (a reserved value, not for use)
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// TRANS+ generic 3D transformation.
+///
+/// Provides 3D transformation functionality, including conversion from/to various formats
+/// (basic transformations, matrices, quaternions, euler etc.), transforming, basic operations.
+/// Each implementation will be based on a particular internal representation (currently only
+/// matrix representation is available, see FWMATRIX16), however the interface is enough abstract 
+/// to mix various representations.
+/// \sa Implementation in FreeWillPlus::TransMatrix
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(94715DA7-4C53-498c-A454-85B9DD768277),
+	helpstring("TRANS+ transformation"),
+	pointer_default(unique)
+]
+interface ITransform : IFWUnknown
+{
+	/// @name Creation Functions
+	/// Functions used to initialize transformation object, as well as to convert from other representation.
+	/// These functions erase any previous contents of the object. They are a convenient way for initializing
+	/// a transformation using simple numerical values or more complicated data structures.
+	/// Most creation functions have their counterparts among the modification functions (see below).
+	HRESULT FromIdentity();										///< Builds an identity transformation
+	HRESULT FromTranslationXYZ(FWDOUBLE x, FWDOUBLE y, FWDOUBLE z);	///< Builds a translation by [x, y, z] vector
+	HRESULT FromTranslationVector(FWVECTOR *pV);				///< Builds a translation by pV vector
+	HRESULT FromTranslationTransform(ITransform *pT);			///< Builds a translation by vector extracted from pT
+	HRESULT FromRotationX(FWDOUBLE fTheta);						///< Builds a rotation around X by angle fTheta
+	HRESULT FromRotationTanX(FWDOUBLE fTan1, FWDOUBLE fTan2);	///< Builds a rotation around X by angle arctan(fTan1 / fTan2)
+	HRESULT FromRotationSinCosX(FWDOUBLE fSin, FWDOUBLE fCos);	///< Builds a rotation around X by an angle with given sin & cos
+	HRESULT FromRotationY(FWDOUBLE fTheta);						///< Builds a rotation around Y by angle fTheta
+	HRESULT FromRotationTanY(FWDOUBLE fTan1, FWDOUBLE fTan2);	///< Builds a rotation around Y by angle arctan(fTan1 / fTan2)
+	HRESULT FromRotationSinCosY(FWDOUBLE fSin, FWDOUBLE fCos);	///< Builds a rotation around Y by an angle with given sin & cos
+	HRESULT FromRotationZ(FWDOUBLE fTheta);						///< Builds a rotation around Z by angle fTheta
+	HRESULT FromRotationTanZ(FWDOUBLE fTan1, FWDOUBLE fTan2);	///< Builds a rotation around Z by angle arctan(fTan1 / fTan2)
+	HRESULT FromRotationSinCosZ(FWDOUBLE fSin, FWDOUBLE fCos);	///< Builds a rotation around Z by an angle with given sin & cos
+	HRESULT FromRotationYawPitchRoll(FWDOUBLE fYaw, FWDOUBLE fPitch, FWDOUBLE fRoll);
+																///< Builds a rotation using yaw, pitch, roll values
+	HRESULT FromRotationTanYawPitchRoll(FWDOUBLE fTan1Yaw, FWDOUBLE fTan2Yaw, FWDOUBLE fTan1Pitch, FWDOUBLE fTan2Pitch, FWDOUBLE fTan1Roll, FWDOUBLE fTan2Roll);
+																///< Builds a rotation using yaw, pitch, roll values; each angle given as arctan(fTan1 / fTan2)
+	HRESULT FromRotationSinCosYawPitchRoll(FWDOUBLE fSinYaw, FWDOUBLE fCosYaw, FWDOUBLE fSinPitch, FWDOUBLE fCosPitch, FWDOUBLE fSinRoll, FWDOUBLE fCosRoll);
+																///< Builds a rotation using yaw, pitch, roll values; each angle with given its sin & cos
+	HRESULT FromRotationEuler(FWEULER *pEuler);					///< Builds a rotation from FWEULER value
+	HRESULT FromRotationAxisAngle(FWVECTOR *p, FWDOUBLE fAngle);///< Builds a rotation from a rotation axis and angle
+	HRESULT FromRotationQuat(FWQUAT *pQuat);					///< Builds a rotation from FWQUAT (quaternion)
+	HRESULT FromRotationTransform(ITransform *pT);				///< Builds a rotation extracted from pT
+	HRESULT FromScaling(FWDOUBLE fScaleX, FWDOUBLE fScaleY, FWDOUBLE fScaleZ);	///< Builds a scaling transformation
+	HRESULT FromLookAtLH(FWVECTOR *pEye, FWVECTOR *pAt, FWVECTOR *pUp); 
+																///< Builds a left-handed, look-at matrix (\b more)
+																///< \param pEye the eye point, used in translation
+																///< \param pAt the camera look-at target
+																///< \param pUp the current world's up, usually [0, 1, 0]
+	HRESULT FromLookAtRH(FWVECTOR *pEye, FWVECTOR *pAt, FWVECTOR *pUp);
+																///< Builds a right-handed, look-at matrix, params as in ITransform::FromLookAtLH
+	HRESULT FromMatrix(FWMATRIX);								///< Converts from the FWMATRIX
+	HRESULT FromMatrix12(FWMATRIX12);							///< Converts from the FWMATRIX12
+	HRESULT FromMatrix9(FWMATRIX9);								///< Converts from the FWMATRIX9
+	HRESULT FromTransform(ITransform *pT);						///< Converts from another instance of ITransform
+	HRESULT FromInvertion(ITransform *pT);						///< Converts from invertion of another instance of ITransform
+
+	/// @name Perspective Non-Orthogonal Transformation
+	HRESULT FromPerspectiveLH(FWDOUBLE fFOV, FWDOUBLE fZN, FWDOUBLE fZF, FWDOUBLE fAspect); 
+				///< Builds a left-handed perspective projection matrix based on a field of view (\b more)
+				///< \param fFOV Field of view, in the y direction, in radians
+				///< \param fZN Z-value of the near view-plane \param fZF Z-value of the far view-plane
+				///< \param fAspect Aspect ratio, defined as view space height divided by width
+	HRESULT FromPerspectiveRH(FWDOUBLE fFOV, FWDOUBLE fZN, FWDOUBLE fZF, FWDOUBLE fAspect); 
+				///< Builds a right-handed perspective projection matrix based on a field of view, params as in ITransform::FromPerspectiveLH
+
+	/// @name Modification Functions
+	/// The modification functions use the current contents of the transformation
+	/// to combine it with a new transformation given by simple numerical values or more complicated data structures.
+	/// Most creation functions (see above) have their counterpart among the modification functions.
+	HRESULT MulTranslationXYZ(FWDOUBLE x, FWDOUBLE y, FWDOUBLE z);	///< Translates the transformation by [x, y, z] vector
+	HRESULT MulTranslationVector(FWVECTOR *pV);				///< Translates the transformation by pV vector
+	HRESULT MulTranslationTransform(ITransform *pT);		///< Translates the transformation by vector extracted from 
+	HRESULT MulRotationX(FWDOUBLE fTheta);						///< Rotates the transformation around X by angle fTheta
+	HRESULT MulRotationTanX(FWDOUBLE fTan1, FWDOUBLE fTan2);		///< Rotates the transformation around X by angle arctan(fTan1 / fTan2)
+	HRESULT MulRotationSinCosX(FWDOUBLE fSin, FWDOUBLE fCos);		///< Rotates the transformation around X by angle with given sin & cos
+	HRESULT MulRotationY(FWDOUBLE fTheta);						///< Rotates the transformation around Y by angle fTheta
+	HRESULT MulRotationTanY(FWDOUBLE fTan1, FWDOUBLE fTan2);		///< Rotates the transformation around Y by angle arctan(fTan1 / fTan2)
+	HRESULT MulRotationSinCosY(FWDOUBLE fSin, FWDOUBLE fCos);		///< Rotates the transformation around Y by angle with given sin & cos
+	HRESULT MulRotationZ(FWDOUBLE fTheta);						///< Rotates the transformation around Z by angle fTheta
+	HRESULT MulRotationTanZ(FWDOUBLE fTan1, FWDOUBLE fTan2);		///< Rotates the transformation around Z by angle arctan(fTan1 / fTan2)
+	HRESULT MulRotationSinCosZ(FWDOUBLE fSin, FWDOUBLE fCos);		///< Rotates the transformation around Z by angle with given sin & cos
+	HRESULT MulRotationYawPitchRoll(FWDOUBLE fYaw, FWDOUBLE fPitch, FWDOUBLE fRoll);
+															///< Rotates the transformation using yaw, pitch, roll values
+	HRESULT MulRotationTanYawPitchRoll(FWDOUBLE fTan1Yaw, FWDOUBLE fTan2Yaw, FWDOUBLE fTan1Pitch, FWDOUBLE fTan2Pitch, FWDOUBLE fTan1Roll, FWDOUBLE fTan2Roll);
+															///< Rotates the transformation using yaw, pitch, roll values; each angle given as arctan(fTan1 / fTan2)
+	HRESULT MulRotationSinCosYawPitchRoll(FWDOUBLE fSinYaw, FWDOUBLE fCosYaw, FWDOUBLE fSinPitch, FWDOUBLE fCosPitch, FWDOUBLE fSinRoll, FWDOUBLE fCosRoll);
+															///< Rotates the transformation using yaw, pitch, roll values; each angle with given its sin & cos
+	HRESULT MulRotationEuler(FWEULER *pEuler);				///< Rotates the transformation using FWEULER value
+	HRESULT MulRotationAxisAngle(FWVECTOR *p, FWDOUBLE fAngle);	///< Rotates the transformation around a rotation axis by an anangle
+	HRESULT MulRotationQuat(FWQUAT *pQuat);					///< Rotates the transformation using FWQUAT (quaternion)
+	HRESULT MulRotationTransform(ITransform *pT);			///< Rotates the transformation by a rotation extracted from pT
+	HRESULT MulScale(FWDOUBLE fScaleX, FWDOUBLE fScaleY, FWDOUBLE fScaleZ);	///< Scales the transformation 
+	HRESULT MulMatrix(FWMATRIX);								///< Transforms the transformation with the FWMATRIX
+
+	HRESULT Multiply(ITransform *pT);						///< Transforms the transformation with pT
+	HRESULT MultiplyEx(ITransform *pT, FWULONG mode);		///< Transforms the transformation with pT using one of the \ref TRANS_MODES settings
+
+	/// @name Convertors to another types
+	HRESULT AsVector([out, retval] FWVECTOR*);				///< Stores the translation data as FWVECTOR, applies coversion if necessary
+	HRESULT AsMatrix([out, retval] FWMATRIX);					///< Stores the transform as FWMATRIX, applies coversion if necessary
+	HRESULT AsMatrixT([out, retval] FWMATRIX);				///< Stores the transform as FWMATRIX, applies coversion if necessary
+	HRESULT AsMatrix12([out, retval] FWMATRIX12);				///< Stores the transform as FWMATRIX12, applies coversion if necessary
+	HRESULT AsMatrix12T([out, retval] FWMATRIX12);			///< Stores the transform as FWMATRIX12, applies coversion if necessary
+	HRESULT AsMatrix9([out, retval] FWMATRIX9);				///< Stores the rotation data as FWMATRIX9, applies coversion if necessary
+	HRESULT AsMatrix9T([out, retval] FWMATRIX9);				///< Stores the rotation data as FWMATRIX9, applies coversion if necessary
+	HRESULT AsEuler([out, retval] FWEULER*);					///< Stores the rotation data as FWEULER, applies coversion if necessary
+	HRESULT AsAxisAngle(FWVECTOR *p, FWDOUBLE *pfAngle);			///< Stores the rotation data as rotation axis and angle, applies coversion if necessary
+	HRESULT AsQuat([out, retval] FWQUAT*);					///< Stores the rotation data as FWQUAT quaternion, applies coversion if necessary
+	HRESULT AsTransform(ITransform *pT);					///< Stores the transform as the given ITransform instance, applies coversion if necessary
+	HRESULT AsInvertion(ITransform *pT);					///< Stores the transform as the given ITransform instance, applies coversion if necessary
+
+	/// @name orthonormality tests
+
+	/// Quick test for orthonormality; may be undetermined (\b more). Gives only the immediate reply, no further calculations in case of unavailability.
+	/// \return S_OK: positive; S_FALSE: undetermined (not necessarilly negative) \sa IsOrthonormal
+	HRESULT IsOrthonormalQuick();
+	
+	/// Full test for orthonormality (\b more). 
+	/// \return S_OK: positive; S_FALSE: negative; \sa IsOrthonormalQuick
+	HRESULT IsOrthonormal();
+
+	/// Advanced test for orthonormality (\b more).
+	/// Returns numerical values that test its orthonormality 
+	/// and allows to determine how big any distortions are.
+	/// Distortions very close to zero may be insignificant.
+	/// \retval bIsOrthogonal = 0 for orthogonal transforms (all rotation vectors are perpendicular).
+	/// \retval bIsNormal = 0 for normal transforms (all rotation vectors are of unitary length).
+	HRESULT IsOrthonormalEx([out] FWDOUBLE *bIsOrthogonal, [out] FWDOUBLE *bIsNormal);
+
+	/// Orthogonalises the transform with Gram-Schmidt algorithm and normalises it;
+	/// use this function to compensate any cumulated calculation errors e.g.\ after exhaustive multiplications of transform
+	HRESULT Orthonormalize();
+
+	/// @name operations
+	/// Basic operations
+	HRESULT ApplyTo([in, out] FWVECTOR *pVector);			///< Applies the transform to the vector
+	HRESULT ApplyInvertionTo([in, out] FWVECTOR *pVector);	///< Applies the transform to the vector
+	HRESULT ApplyTranslationTo([in, out] FWVECTOR *pVector);///< Applies translation only to the vector (does not rotate)
+	HRESULT ApplyRotationTo([in, out] FWVECTOR *pVector);	///< Applies rotation only to the vector (does not translate)
+	HRESULT Reset(BOOL bZeroRotScale, BOOL bZeroTranslate);	///< Resets its rotation/scale data, translation data or both
+	HRESULT Transpose();									///< Changes the transformation into the transposed transformation
+	HRESULT Inverse();										///< Changes the transformation into the inverse transformation
+	HRESULT Interpolate(ITransform *pSrc, ITransform *pDest, FWDOUBLE fPhase);		
+															///< Finds an interpolation value between pSrc and pDest
+															///< in fPhase, fPhase in [0..1] where 0 is Src and 1 is Dest
+
+	/// @name implementation dependent items
+	/// The meaning of the functions above depend on the implementation. 
+	/// Usually these functions give direct access to raw binary data treated as a sequence of FWDOUBLE data.
+	HRESULT GetItem(FWULONG nIndex, [out, retval] FWDOUBLE *pVal);///< reads raw data
+	HRESULT PutItem(FWULONG nIndex, FWDOUBLE newVal);			///< writes raw data
+};
+
+/// @}

@@ -1,0 +1,616 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Polish (Poland) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_PLK)
+LANGUAGE LANG_POLISH, SUBLANG_DEFAULT
+#pragma code_page(1250)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_SPLASH              BITMAP                  "res\\splash.bmp"
+#endif    // Polish (Poland) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDR_MAINFRAME           BITMAP                  "res\\Toolbar.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON                    "res\\fwview.ico"
+IDR_freewillTYPE        ICON                    "res\\fwviewDoc.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Toolbar
+//
+
+IDR_MAINFRAME TOOLBAR 16, 16
+BEGIN
+    BUTTON      ID_FILE_OPEN
+    SEPARATOR
+    BUTTON      ID_FILE_SAVE_STILL
+    SEPARATOR
+    BUTTON      ID_PLAY_PLAY
+    BUTTON      ID_PLAY_PAUSE
+    BUTTON      ID_PLAY_STOP
+    SEPARATOR
+    BUTTON      ID_PLAY_REWIND
+    BUTTON      ID_PLAY_FORWARD
+    SEPARATOR
+    BUTTON      ID_MANIPULATE_POINT
+    SEPARATOR
+    BUTTON      ID_MANIPULATE_MOVE
+    BUTTON      ID_MANIPULATE_ROTATE
+    SEPARATOR
+    BUTTON      ID_MANIPULATE_RESET
+    SEPARATOR
+    BUTTON      ID_MANIPULATE_RESETALL
+    SEPARATOR
+    BUTTON      ID_MANIPULATE_LOCAL
+    BUTTON      ID_MANIPULATE_VIEW
+    BUTTON      ID_MANIPULATE_ARBITRARY
+    SEPARATOR
+    BUTTON      ID_TEST_1
+    BUTTON      ID_TEST_2
+    BUTTON      ID_TEST_3
+    BUTTON      ID_TEST_4
+    BUTTON      ID_TEST_5
+    BUTTON      ID_TEST_6
+    BUTTON      ID_TEST_7
+    BUTTON      ID_TEST_8
+    SEPARATOR
+    BUTTON      ID_TEST_X
+    BUTTON      ID_TEST_Y
+    BUTTON      ID_TEST_Z
+    SEPARATOR
+    BUTTON      ID_TEST_SETA
+    BUTTON      ID_TEST_SETB
+    BUTTON      ID_TEST_SETC
+    BUTTON      ID_TEST_SETD
+    SEPARATOR
+    BUTTON      ID_TEST_STOREMODE
+    SEPARATOR
+    BUTTON      ID_APP_ABOUT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MAINFRAME MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New\tCtrl+N",                ID_FILE_NEW
+        MENUITEM "&Open...\tCtrl+O",            ID_FILE_OPEN
+        MENUITEM SEPARATOR
+        MENUITEM "Save &Still Frame...",        ID_FILE_SAVE_STILL
+        MENUITEM SEPARATOR
+        MENUITEM "Recent File",                 ID_FILE_MRU_FILE1, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                       ID_APP_EXIT
+    END
+    POPUP "&Play"
+    BEGIN
+        MENUITEM "&Play",                       ID_PLAY_PLAY
+        MENUITEM "P&ause",                      ID_PLAY_PAUSE
+        MENUITEM "&Stop",                       ID_PLAY_STOP
+        MENUITEM SEPARATOR
+        MENUITEM "&Rewind",                     ID_PLAY_REWIND
+        MENUITEM "&Forward",                    ID_PLAY_FORWARD
+    END
+    POPUP "&Manipulate"
+    BEGIN
+        MENUITEM "&Point",                      ID_MANIPULATE_POINT
+        MENUITEM SEPARATOR
+        MENUITEM "&Move",                       ID_MANIPULATE_MOVE
+        MENUITEM "&Rotate",                     ID_MANIPULATE_ROTATE
+        MENUITEM SEPARATOR
+        MENUITEM "Use &Local Axis",             ID_MANIPULATE_LOCAL
+        MENUITEM "Use &View Axis",              ID_MANIPULATE_VIEW
+        MENUITEM "Use Ar&bitrary Axis (%s)",    ID_MANIPULATE_ARBITRARY
+        MENUITEM "Set %s as Arbitrary Axis",    ID_MANIPULATE_SET_ARBITRARY
+        MENUITEM SEPARATOR
+        MENUITEM "R&eset selected",             ID_MANIPULATE_RESET
+        MENUITEM "Reset &whole scene",          ID_MANIPULATE_RESETALL
+    END
+    POPUP "&Accelaration"
+    BEGIN
+        MENUITEM "4 x slower",                  ID_ACCELARATION_4XSLOWER
+        MENUITEM "2 x slower",                  ID_ACCELARATION_2XSLOWER
+        MENUITEM "normal",                      ID_ACCELARATION_NORMAL
+        MENUITEM "2 x faster",                  ID_ACCELARATION_2XFASTER
+        MENUITEM "4 x faster",                  ID_ACCELARATION_4XFASTER
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Toolbar",                    ID_VIEW_TOOLBAR
+        MENUITEM "&Status Bar",                 ID_VIEW_STATUS_BAR
+        MENUITEM SEPARATOR
+        MENUITEM "&Reset",                      ID_VIEW_RESET
+        MENUITEM "&Full screen",                ID_VIEW_FULLSCREEN
+    END
+    POPUP "&Test"
+    BEGIN
+        MENUITEM "Test Procedure &1",           ID_TEST_1
+        MENUITEM "Test Procedure &2",           ID_TEST_2
+        MENUITEM "Test Procedure &3",           ID_TEST_3
+        MENUITEM "Test Procedure &4",           ID_TEST_4
+        MENUITEM "Test Procedure &5",           ID_TEST_5
+        MENUITEM "Test Procedure &6",           ID_TEST_6
+        MENUITEM "Test Procedure &7",           ID_TEST_7
+        MENUITEM "Test Procedure &8",           ID_TEST_8
+        MENUITEM SEPARATOR
+        MENUITEM "Test Procedure &X",           ID_TEST_X
+        MENUITEM "Test Procedure &Y",           ID_TEST_Y
+        MENUITEM "Test Procedure &Z",           ID_TEST_Z
+        MENUITEM SEPARATOR
+        MENUITEM "Test Set &A",                 ID_TEST_SETA
+        MENUITEM "Test Set &B",                 ID_TEST_SETB
+        MENUITEM "Test Set &C",                 ID_TEST_SETC
+        MENUITEM "Test Set &D",                 ID_TEST_SETD
+        MENUITEM SEPARATOR
+        MENUITEM "&Save Output to AVI File",    ID_TEST_STOREMODE
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About FreeWill View...",     ID_APP_ABOUT
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_MAINFRAME ACCELERATORS
+BEGIN
+    "C",            ID_EDIT_COPY,           VIRTKEY, CONTROL, NOINVERT
+    VK_INSERT,      ID_EDIT_COPY,           VIRTKEY, CONTROL, NOINVERT
+    VK_DELETE,      ID_EDIT_CUT,            VIRTKEY, SHIFT, NOINVERT
+    "X",            ID_EDIT_CUT,            VIRTKEY, CONTROL, NOINVERT
+    "V",            ID_EDIT_PASTE,          VIRTKEY, CONTROL, NOINVERT
+    VK_INSERT,      ID_EDIT_PASTE,          VIRTKEY, SHIFT, NOINVERT
+    VK_BACK,        ID_EDIT_UNDO,           VIRTKEY, ALT, NOINVERT
+    "Z",            ID_EDIT_UNDO,           VIRTKEY, CONTROL, NOINVERT
+    "N",            ID_FILE_NEW,            VIRTKEY, CONTROL, NOINVERT
+    "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL, NOINVERT
+    "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
+    VK_F6,          ID_NEXT_PANE,           VIRTKEY, NOINVERT
+    VK_F6,          ID_PREV_PANE,           VIRTKEY, SHIFT, NOINVERT
+    "1",            ID_TEST_1,              VIRTKEY, ALT, NOINVERT
+    "2",            ID_TEST_2,              VIRTKEY, ALT, NOINVERT
+    "3",            ID_TEST_3,              VIRTKEY, ALT, NOINVERT
+    "4",            ID_TEST_4,              VIRTKEY, ALT, NOINVERT
+    "5",            ID_TEST_5,              VIRTKEY, ALT, NOINVERT
+    "6",            ID_TEST_6,              VIRTKEY, ALT, NOINVERT
+    "7",            ID_TEST_7,              VIRTKEY, ALT, NOINVERT
+    "8",            ID_TEST_8,              VIRTKEY, ALT, NOINVERT
+    "A",            ID_TEST_SETA,           VIRTKEY, ALT, NOINVERT
+    "B",            ID_TEST_SETB,           VIRTKEY, ALT, NOINVERT
+    "C",            ID_TEST_SETC,           VIRTKEY, ALT, NOINVERT
+    "D",            ID_TEST_SETD,           VIRTKEY, ALT, NOINVERT
+    "X",            ID_TEST_X,              VIRTKEY, ALT, NOINVERT
+    "Y",            ID_TEST_Y,              VIRTKEY, ALT, NOINVERT
+    "Z",            ID_TEST_Z,              VIRTKEY, ALT, NOINVERT
+    "F",            ID_VIEW_FULLSCREEN,     VIRTKEY, ALT, NOINVERT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOGEX 0, 0, 491, 249
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    CONTROL         137,IDC_STATIC,"Static",SS_BITMAP,0,0,491,249
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904e4"
+        BEGIN
+            VALUE "CompanyName", "FreeWill Research Group"
+            VALUE "FileDescription", "FreeWill+ Viewer"
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "fwview.exe"
+            VALUE "LegalCopyright", "(c) FreeWill Research Group.  All rights reserved."
+            VALUE "OriginalFilename", "fwview.exe"
+            VALUE "ProductName", "FreeWill+ Viewer"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1252
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 484
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 242
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDR_MAINFRAME           "FreeWill+ Viewer\n\nfreewill\nFreeWill+ Files (*.3D)\n.3D\nfreewill.Document\nfreewill.Document"
+    ID_INDICATOR_PLAYTIME_2 "Stopped"
+    ID_INDICATOR_PLAYTIME_3 "Paused at %5.2f"
+    ID_INDICATOR_PLAYTIME_4 "Finished at %5.2f"
+    ID_MANIPULATE_ARBITRARY_MENUTXT "Use &Arbitrary Axis: %ls"
+    ID_MANIPULATE_SET_ARBITRARY_MENUTXT "Set %ls as new Arbitrary Axis"
+END
+
+STRINGTABLE
+BEGIN
+    AFX_IDS_APP_TITLE       "fwview"
+    AFX_IDS_IDLEMESSAGE     "Ready"
+END
+
+STRINGTABLE
+BEGIN
+    ID_INDICATOR_EXT        "EXT"
+    ID_INDICATOR_CAPS       "CAP"
+    ID_INDICATOR_NUM        "NUM"
+    ID_INDICATOR_SCRL       "SCRL"
+    ID_INDICATOR_OVR        "OVR"
+    ID_INDICATOR_REC        "REC"
+END
+
+STRINGTABLE
+BEGIN
+    ID_FILE_NEW             "Create a new document\nNew"
+    ID_FILE_OPEN            "Open an existing document\nOpen"
+    ID_FILE_CLOSE           "Close the active document\nClose"
+    ID_FILE_SAVE            "Save the active document\nSave"
+    ID_FILE_SAVE_AS         "Save the active document with a new name\nSave As"
+END
+
+STRINGTABLE
+BEGIN
+    ID_APP_ABOUT            "Display program information, version number and copyright\nAbout"
+    ID_APP_EXIT             "Quit the application; prompts to save documents\nExit"
+END
+
+STRINGTABLE
+BEGIN
+    ID_FILE_MRU_FILE1       "Open this document"
+    ID_FILE_MRU_FILE2       "Open this document"
+    ID_FILE_MRU_FILE3       "Open this document"
+    ID_FILE_MRU_FILE4       "Open this document"
+    ID_FILE_MRU_FILE5       "Open this document"
+    ID_FILE_MRU_FILE6       "Open this document"
+    ID_FILE_MRU_FILE7       "Open this document"
+    ID_FILE_MRU_FILE8       "Open this document"
+    ID_FILE_MRU_FILE9       "Open this document"
+    ID_FILE_MRU_FILE10      "Open this document"
+    ID_FILE_MRU_FILE11      "Open this document"
+    ID_FILE_MRU_FILE12      "Open this document"
+    ID_FILE_MRU_FILE13      "Open this document"
+    ID_FILE_MRU_FILE14      "Open this document"
+    ID_FILE_MRU_FILE15      "Open this document"
+    ID_FILE_MRU_FILE16      "Open this document"
+END
+
+STRINGTABLE
+BEGIN
+    ID_NEXT_PANE            "Switch to the next window pane\nNext Pane"
+    ID_PREV_PANE            "Switch back to the previous window pane\nPrevious Pane"
+END
+
+STRINGTABLE
+BEGIN
+    ID_WINDOW_SPLIT         "Split the active window into panes\nSplit"
+END
+
+STRINGTABLE
+BEGIN
+    ID_EDIT_CLEAR           "Erase the selection\nErase"
+    ID_EDIT_CLEAR_ALL       "Erase everything\nErase All"
+    ID_EDIT_COPY            "Copy the selection and put it on the Clipboard\nCopy"
+    ID_EDIT_CUT             "Cut the selection and put it on the Clipboard\nCut"
+    ID_EDIT_FIND            "Find the specified text\nFind"
+    ID_EDIT_PASTE           "Insert Clipboard contents\nPaste"
+    ID_EDIT_REPEAT          "Repeat the last action\nRepeat"
+    ID_EDIT_REPLACE         "Replace specific text with different text\nReplace"
+    ID_EDIT_SELECT_ALL      "Select the entire document\nSelect All"
+    ID_EDIT_UNDO            "Undo the last action\nUndo"
+    ID_EDIT_REDO            "Redo the previously undone action\nRedo"
+END
+
+STRINGTABLE
+BEGIN
+    ID_VIEW_TOOLBAR         "Show or hide the toolbar\nToggle ToolBar"
+    ID_VIEW_STATUS_BAR      "Show or hide the status bar\nToggle StatusBar"
+END
+
+STRINGTABLE
+BEGIN
+    AFX_IDS_SCSIZE          "Change the window size"
+    AFX_IDS_SCMOVE          "Change the window position"
+    AFX_IDS_SCMINIMIZE      "Reduce the window to an icon"
+    AFX_IDS_SCMAXIMIZE      "Enlarge the window to full size"
+    AFX_IDS_SCNEXTWINDOW    "Switch to the next document window"
+    AFX_IDS_SCPREVWINDOW    "Switch to the previous document window"
+    AFX_IDS_SCCLOSE         "Close the active window and prompts to save the documents"
+END
+
+STRINGTABLE
+BEGIN
+    AFX_IDS_SCRESTORE       "Restore the window to normal size"
+    AFX_IDS_SCTASKLIST      "Activate Task List"
+END
+
+STRINGTABLE
+BEGIN
+    ID_PLAY_PLAY            "Play the current animation sequence\nPlay"
+    ID_PLAY_PAUSE           "Pause the animation\nPause"
+    ID_PLAY_STOP            "Stop the animation\nStop"
+    ID_PLAY_REWIND          "Rewind the animation\nRewind"
+    ID_PLAY_FORWARD         "Forward the animation\nForward"
+    ID_MANIPULATE_MOVE      "Move the selected object or part"
+    ID_MANIPULATE_ROTATE    "Rotate the selected object or part"
+    ID_MANIPULATE_RESET     "Reset the selected object or part"
+END
+
+STRINGTABLE
+BEGIN
+    ID_INDICATOR_PLAYTIME   "Play Time: %5.2f"
+    ID_MANIPULATE_POINT     "Point an object or part to select"
+    ID_INDICATOR_NAME       "                                                    "
+    ID_INDICATOR_OP         "                                                    "
+END
+
+STRINGTABLE
+BEGIN
+    ID_TEST_SETB            "Test Set B: Balancing\nTest Set B: Balancing"
+    ID_TEST_SETC            "Test Set C: Catching a Ball\nTest Set C: Catching a Ball"
+    ID_TEST_SETD            "Test Set D: Smart Objects\nTest Set D: Smart Objects"
+    ID_FILE_SAVE_STILL      "Saves a Still Frame to a BMP file\nSave Still"
+    ID_TEST_STOREMODE       "Switch saving to AVI file on or off\nSave to AVI"
+    ID_INDICATOR_TEST       "              "
+END
+
+STRINGTABLE
+BEGIN
+    ID_MANIPULATE_LOCAL     "Use local axis to manipulate objects\nLocal axis"
+    ID_MANIPULATE_VIEW      "Use view axis to manipulate objects\nView axis"
+END
+
+STRINGTABLE
+BEGIN
+    ID_MANIPULATE_ARBITRARY "Use arbitrary axis to manipulate objects\nArbitrary axis"
+    ID_MANIPULATE_SET_ARBITRARY 
+                            "Sets the axis of currently chosen object as arbitrary axis for object manipulation"
+    ID_TEST_1               "Test Procedure #1\nTest #1"
+    ID_TEST_3               "Test Procedure #3\nTest #3"
+    ID_TEST_4               "Test Procedure #4\nTest #4"
+    ID_TEST_2               "Test Procedure #2\nTest #2"
+    ID_TEST_5               "Test Procedure #5\nTest #5"
+    ID_TEST_6               "Test Procedure #6\nTest #6"
+    ID_TEST_7               "Test Procedure #7\nTest #7"
+    ID_TEST_8               "Test Procedure #8\nTest #8"
+    ID_TEST_X               "Test Procedure X\nTest X"
+    ID_TEST_Y               "Test Procedure Y\nTest Y"
+    ID_TEST_Z               "Test Procedure Z\nTest Z"
+    ID_TEST_SETA            "Test Set A: General\nTest Set A: General"
+END
+
+STRINGTABLE
+BEGIN
+    ID_MANIPULATE_RESETALL  "Reset the whole scene"
+END
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United Kingdom) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENG)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_UK
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDR_TOOLBAR_LEFT        BITMAP                  "res\\toolbar1.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Toolbar
+//
+
+IDR_TOOLBAR_LEFT TOOLBAR 16, 15
+BEGIN
+    BUTTON      ID_LEFT_EXPAND_ALL
+    SEPARATOR
+    BUTTON      ID_LEFT_EXPAND_BIPED_HANDS
+    BUTTON      ID_LEFT_EXPAND_BIPED_FINGERS
+    SEPARATOR
+    BUTTON      ID_LEFT_EXPAND2
+    BUTTON      ID_LEFT_EXPAND3
+    BUTTON      ID_LEFT_EXPAND4
+    BUTTON      ID_LEFT_EXPAND5
+    BUTTON      ID_LEFT_EXPAND6
+    BUTTON      ID_LEFT_EXPAND7
+    BUTTON      ID_LEFT_EXPAND8
+    BUTTON      ID_LEFT_EXPAND9
+    BUTTON      ID_LEFT_EXPAND10
+    BUTTON      ID_LEFT_EXPAND11
+    BUTTON      ID_LEFT_EXPAND12
+    BUTTON      ID_LEFT_EXPAND13
+    BUTTON      ID_LEFT_EXPAND14
+    BUTTON      ID_LEFT_EXPAND15
+    BUTTON      ID_LEFT_EXPAND16
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MENU1 MENU
+BEGIN
+    POPUP "Dummy"
+    BEGIN
+        MENUITEM "Play Time",                   ID_INDICATOR_PLAYTIME
+        MENUITEM "Object Name",                 ID_INDICATOR_NAME
+        MENUITEM "Operation Def",               ID_INDICATOR_OP
+        MENUITEM "Test",                        ID_INDICATOR_TEST
+    END
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)\r\n"
+    "LANGUAGE 9, 1\r\n"
+    "#pragma code_page(1252)\r\n"
+    "#include ""res\\fwview.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""afxres.rc""         // Standard components\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Cursor
+//
+
+IDC_CURSOR_MOVE         CURSOR                  "res\\cursor1.cur"
+IDC_CURSOR_ROTATE_IN    CURSOR                  "res\\cursor_m.cur"
+IDC_CURSOR_ROTATE_OUT   CURSOR                  "res\\cursor_r.cur"
+IDC_CURSOR_ROTATE_H     CURSOR                  "res\\cur00001.cur"
+IDC_CURSOR_ROTATE_V     CURSOR                  "res\\cur00002.cur"
+#endif    // English (United Kingdom) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE 9, 1
+#pragma code_page(1252)
+#include "res\fwview.rc2"  // non-Microsoft Visual C++ edited resources
+#include "afxres.rc"         // Standard components
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

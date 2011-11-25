@@ -1,0 +1,211 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// FWRender IDL file
+/// \file 
+/// The Renderer External Unit; see \ref fwrender
+
+import "rndrplus.idl";
+import "matplus.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup fwrender External Module: FWRender
+/// The Renderer Core. This module is under construction.
+///
+/// \section fwrimlpl Implementation Remarks
+/// This is an external module, a DLL file specific for the Microsoft DirectX 9.0 platform.
+/// This module contains:
+/// - FWRender::MeshDX9VertexBuffer and FWRender::MeshDX9FaceBuffer, implementation classes
+///   for Vertex & Face Buffers. The underlying interfaces, IMeshVertexBuffer and
+///   IMeshFaceBuffer, are declared in the \ref meshplus, in the main FreeWill+ module.
+///   As the beuufers are strictly platform-dependent, the FreeWill+ module cannot
+///   contain their implementation.
+/// - FWRender::DX9Renderer, IRenderer interface implementation class for the DirectX 9.0
+///   Rendering Machine.
+///
+/// All classes are for use with DirectX 9.0 and must be replaced or modified while
+/// any other platform is required.
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Assumption:
+// all [in], [in, out] and [out, retval] pointers must be valid: the implementation has no need to validate them
+// all [out] pointers may be NULL pointers: the implementation must not assign any values in such case
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+// INTERFACE DEFINITIONS
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup fwrender
+/// @name FWRender Bitmap File Formats
+enum FW_RENDER_BITMAP
+{
+	RENDER_BMP, RENDER_JPG, RENDER_TGA, RENDER_PNG
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup fwrender
+/// @name FWRender Callback Types
+/// Defines the envelope types
+enum FW_RENDER_CB_TYPE
+{
+	FW_CB_LOSTDEVICE,		///< called when the device is lost or about to be lost
+	FW_CB_RESETDEVICE,		///< called after the device reset
+	FW_CB_MAX				///< do not use this value
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup fwrender
+/// @name FWRender Callback type
+typedef void (*FW_RENDER_CB_HOOK)(IRndrGeneric *p, FWULONG nParam, void *pParam);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup fwrender
+/// \interface IRenderer
+/// RENDER+ Renderer Object
+///
+/// The Renderer interface is a high, abstract level for the platform dependent renderer.
+/// Currently only the renderer for the MS DirectX 9 platform is implemented.
+/// This interface inherits IRndrGeneric, the minimum requirement specification.
+///
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(176D1146-2C6B-42fd-8EB9-6A23DFD96005),
+	helpstring("RENDER+ Renderer Object"),
+	pointer_default(unique)
+]
+interface IRenderer : IRndrGeneric
+{
+	/// @name Attributes
+	/// Background colour
+	HRESULT GetBackColor([out, retval] FWCOLOR *pVal);			///< Gets the background colour
+	HRESULT PutBackColor([in] FWCOLOR newVal);					///< Puts the background colour
+
+	/// @name Drawing Functions
+	/// Call InitDisplay to initialise, DoneDisplay to terminate the display.
+	/// Call BeginDraw before, and EndDraw after any drawing.
+	/// Call ISceneRenderee::Render to do the actual drawing.
+	
+	/// Builds and initializes the platform-dependent display device in the provided window (NULL for full screen mode), using the back buffer size (0 for the window size)
+	HRESULT InitDisplay(HWND hWnd, FWULONG nWidth, FWULONG nHeight);
+	
+	/// Builds and initialises an off-screen display device at the given size
+	HRESULT InitOffScreen(FWULONG nWidth, FWULONG nHeight);
+	HRESULT DoneDisplay();			///< Terminates and destroys the platform-dependent display device
+	HRESULT DoneOffScreen();		///< Terminates and destroys the off-screen display device
+	HRESULT GetWindow(HWND *phWnd);	///< Retrieves the window associated with the platform-dependent display device
+	HRESULT PutWindow(HWND hWnd);	///< Retargets the platform-dependent display device to the provided window
+	[local] HRESULT SetCallback(enum FW_RENDER_CB_TYPE, FW_RENDER_CB_HOOK, FWULONG nParam, void *pParam);	///< Sets a callback function
+	HRESULT IsDeviceAvailable();	///< Returns S_FALSE if the device is lost; S_OK otherwise
+	HRESULT ResetDevice();			///< Resets the display device; this function returns "quiet" error - no error is raised in case of FAILED
+	HRESULT ResetDeviceEx(HWND hWnd, FWULONG nWidth, FWULONG nHeight);///< Extended version of ResetDevice
+
+	HRESULT Clear();				///< Fills the device with the background color
+	HRESULT BeginFrame();			///< Prepares the device to display a frame
+	HRESULT EndFrame();				///< Finalises frame display; if in off-screen mode and bitmap or avi file opened - stores the frame
+
+	HRESULT SetTargetToScreen();	///< Sets the rendering target to the screen
+	HRESULT SetTargetOffScreen();	///< Sets the rendering target off-screen
+
+	HRESULT OpenStillFile(LPCTSTR pFilename, enum FW_RENDER_BITMAP fmt);	///< Opens a still (bitmap) file
+	HRESULT CloseStillFile();								///< Closes a still (bitmap) file - normally, saved automatically from EndFrame
+	HRESULT OpenMovieFile(LPCTSTR pFilename, FWULONG nFPS);	///< Opens a movie file
+	HRESULT CloseMovieFile();								///< Closes a movie file
+
+	/// @name Animation Control
+	/// The functions below control the animation internal clock that drives the objects in the Display List.
+	/// They may be diretly pinned to the animation toolbar's buttons
+	HRESULT Play();				///< Starts the animation (Play mode)
+	HRESULT IsPlaying();		///< S_OK if animation is in Play mode
+	HRESULT Pause();			///< Switches the animation Pause mode
+	HRESULT IsPaused();			///< S_OK if animation is in Play mode
+	HRESULT Stop();				///< Stops the animation (Stop mode)
+	HRESULT GetAccel([out, retval] FWFLOAT *pA);	///< Gets accelaration factor (1=normal, <1=slow, >1=fast)
+	HRESULT PutAccel(FWFLOAT nA);					///< Puts the accelaration factor (1=normal, <1=slow, >1=fast)
+	HRESULT GetTotalPlayingTime([out, retval] FWULONG *pnMSec);	///< Gets the total playing time, if known
+	HRESULT PutTotalPlayingTime(FWULONG nMSec);					///< Puts the total playing time, if known
+	HRESULT GetPlayTime([out, retval] FWULONG *pnMSec);			///< Gets time elapsed since the beginning of the current animation sequence
+	HRESULT PutPlayTime(FWULONG pnMSec);							///< Puts the time elapsed since the beginning of the current animation sequence
+
+	/// @name Low level access
+	/// Function providing handlers necessary for low level, platform-specific processing
+
+	/// Gets the platform specific device handle, like IDirect3D9/IDirect3DDevice9 for DX or HGLRC for OGL (more...).
+	/// For DX, set nId=0 for IDirect3D9 and nId=1 for IDirect3DDevice9
+	/// For OGL, check future implementation...
+	HRESULT GetDeviceHandle(FWULONG nId, [out, retval] FWHANDLE *pHandle);
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// TYPE LIBRARY
+
+[
+	uuid(8D788BE7-D26D-40b6-80D2-992BDEF8F58E),
+	version(1.0),
+	helpstring("RENDER+ Type Library")
+]
+library FWDX9Render
+{
+	importlib("stdole32.tlb") ;
+
+	/// Implementation class for the platform-dependent DirectX-9 IMeshVertexBuffer object.
+	/// @ingroup fwrender
+	/// The IMeshVertexBuffer is defined in \ref meshplus however its implementation
+	/// is usually highly platform-dependentand thus it is done in \ref fwrender.
+	/// This class must be replaced or modified if any other platform is considered.
+	/// \remark These objects should never be created directly, instead call 
+	/// IRndrGeneric::GetBuffers to get a buffer version that is fully 
+	/// compatible with the renderer's platform.
+	[
+		uuid(C39A469C-B448-460c-A9D7-C2F0A8E19855),
+		helpstring("MESH+ DX9-based Vertex Buffer")
+	]
+	coclass MeshDX9VertexBuffer
+	{
+		[default] interface IMeshVertexBuffer;
+	};
+
+	/// Implementation class for the platform-dependent DirectX-9 IMeshFaceBuffer object.
+	/// @ingroup fwrender
+	/// The IMeshFaceBuffer is defined in \ref meshplus however its implementation
+	/// is usually highly platform-dependentand thus it is done in \ref fwrender.
+	/// This class must be replaced or modified if any other platform is considered.
+	/// \remark These objects should never be created directly, instead call 
+	/// IRndrGeneric::GetBuffers to get a buffer version that is fully 
+	/// compatible with the renderer's platform.
+	[
+		uuid(0B81B1FD-6ECC-4bab-88AC-5C4A1B2F4DA1),
+		helpstring("MESH+ DX9-based Face Buffer")
+	]
+	coclass MeshDX9FaceBuffer
+	{
+		[default] interface IMeshFaceBuffer;
+	};
+
+	/// Implementation class for the platform-dependent DirectX-9 IRenderer Object.
+	/// @ingroup fwrender
+	/// This is the Renderer Class for the DirectX 9.0 platform.
+	/// This class must be replaced or modified if another platform is considered.
+	[
+		uuid(B98AF6DD-184F-4cb7-A3DE-DDE67D831185),
+		helpstring("MESH+ DX9-based Renderer Class")
+	]
+	coclass DX9Renderer
+	{
+		[default] interface IRenderer;
+	};
+	
+	/// Implementation class for the platform-dependent DirectX-9 ITexture Object.
+	[
+		uuid(25E835EA-5E1F-4289-A671-DEB42A8CB454),
+		helpstring("MAT+ DX9-based Texture Class")
+	]
+	coclass DX9Texture
+	{
+		[default] interface ITexture;
+		interface IFWUnknown;
+	};	
+
+} ;

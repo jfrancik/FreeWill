@@ -1,0 +1,87 @@
+<html>
+	<head>
+		<title>FREE WILL+ How to create a DLL subproject</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=windows-1250">
+	</head>
+	<body>
+		<font face="Arial">
+			<h1>FREE WILL+ Coding Standards</h1>
+			<h2>How to Create a DLL FreeWill+ Module Project</h2>
+			<p>DLL FreeWill+ Module projects subject to following rules:
+			</p>
+			<ul>
+				<li>
+				all units compile to COM+ inproc (dll) servers
+				<li>
+				all interfaces are supplied in form of IDL files
+				<li>
+				all interfaces hold a name prefix appropriate to its functionality, e.g. IKine 
+				or IRenderer
+				<li>
+				module interdependency is kept at a minimal possible level
+				<li>
+					module is platform-independent if possible; platform dependent implementation 
+					is kept in separate dlls when applicable</li></ul>
+			<p>Additionally, subprojects of the FreeWill project subject to following rules:</p>
+			<ul>
+				<li>
+				all IDL files are kept in /idl folder
+				<li>
+				all IDL compilation output is stored in /include folder; output header file is 
+				named as the idl itself (without _h suffix)
+				<li>
+				all common cpp/h files are kept in /common folder
+				<li>
+					/common/factory.cpp and /common/fwfactory.h are used to facilitate 
+					implementation of IClassFactory, IUnknown, IFWillUnknown etc.</li></ul>
+			<p>Steps to start a new project:</p>
+			<ol>
+		</font></OL><font face="Arial">
+			<ol>
+				<li>
+				Create a new project (add to solution: Visual C++ Projects, Win32, Win32 
+				Project; application type: DLL). Do not use Hungarian notation uppercase, 
+				typical names are kineplus, renderplus, meshplus,&nbsp;freewill etc.
+				<li>
+					Create a blank IDL file
+					<br>
+					<em><font size="2">for FreeWill+ internal projects: store it as /idl/prjname.idl (where 
+							prjname is the name of project) </font></em>
+				<li>
+					In the Solution Explorer, right-click on the sub-project's name and set 
+					Properties for <u>All Configurations</u> :
+					<br>
+					MIDL | Output | Output directory = ..\include<br>
+					MIDL | Output | Header file = $(InputName).h
+					<br>
+					Custom Build Setup | Command Line =<br>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; regsvr32 /s /c "$(TargetPath)"
+					<br>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo regsvr32 exec. time &gt; 
+					"$(OutDir)\regsvr32.trg"
+					<br>
+					Custom Build Setup | Description = Performing registration<br>
+				Custom Build Setup | Outputs = $(OutDir)\regsvr32.trg
+				<li>
+					Link the project with lib/fwcommon.lib by adding the lib file to the project 
+					files
+					<br>
+					<font size="2"><em>in case of FreeWill+ internal projects use instead Project 
+							Dependencies option to set-up the dependency. </em></font>
+				<li>
+					Create file prjname.def (where prjname is the name of project) with contents as <a href="prjname.def.html">
+						here</a>
+			. </font><font face="Arial">
+			<li>
+				Use the standard form of <a href="stdafx.h.html">stdafx.h</a> and <a href="prjname.cpp.html">
+					prjname.cpp</a> files, modify the latter where applicable. This will 
+				implement the factory class and indispensable DLL COM server elements.</li></OL>
+			<p>You should consider using the tools included in factory.h and fwfactory.h files, 
+				fwcommon library, to facilitate the implementation of your classes. This 
+				library provides simple templete-based implementation for base interface 
+				IUnknown, IFWillUnknown and similar. See the comments in the files for details 
+				and also view these <a href="otherfiles.html">mock project implementation files</a>.</p>
+			<p>&nbsp;</p>
+		</font></FONT>
+	</body>
+</html>

@@ -1,0 +1,129 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// MAT+ IDL file
+/// \file 
+/// Abstract layer for materials
+
+import "common.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup matplus MAT+ Module
+/// An abstract layer for marterials:
+///
+/// - ITexture - highly platform-dependent objects controlling the textures,
+/// - IMaterial - materials (usually platform independent)
+///
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Assumption:
+// all [in], [in, out] and [out, retval] pointers must be valid: the implementation has no need to validate them
+// all [out] pointers may be NULL pointers: the implementation must not assign any values in such case
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// LIST OF INTERFACES
+
+// MAT+ texture
+interface ITexture;
+// MAT+ material
+interface IMaterial;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup matplus
+/// @name MAT+ Module-Specific Error Codes
+/// Error codes used by classes in this module only
+enum MAT_ERRORS
+{
+	MAT_E_PLATFORM = FW_E_CLASS_ERRORS,		///< Material platform error
+	MAT_E_PLATFORM_EX,						///< Material platform error: %s
+	MAT_TEXTURE_ERROR,						///< An error occured when creating a texture
+	MAT_TEXTURE_FROM_FILE_ERROR,			///< An error occured when loading a texture from file: %s
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup matplus
+/// @name MAT+ Material Transparency Modes (enum type)
+/// Codes used by IMaterial::SetTransparencyMode and IMaterial::GetTransparencyMode functions
+enum MAT_ALPHA
+{
+	MAT_ALPHA_DISABLE,						///< Disable all transparency
+	MAT_ALPHA_MATERIAL,						///< Use the material's diffuse colour alpha channel value
+	MAT_ALPHA_TEXTURE						///< Use alpha values stored in the texture, ignored if no texture set
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup matplus
+/// \interface ITexture
+/// MAT+ Generic Texture.
+///
+/// This class is nor documented yet.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(26E88632-D84C-40d1-A549-0F109C2E1161),
+	helpstring("MAT+ texture"),
+	pointer_default(unique)
+]
+interface ITexture : IFWUnknown
+{
+	/// Loads a texture from the given file
+	HRESULT LoadFromFile([in] LPOLESTR szFileName);
+	/// Creates a texture using a memory buffer
+	HRESULT LoadFromFileInMemory([in] BYTE* pData, [in] FWULONG nDataSize);
+	/// Returns S_OK if a texture is loaded; S_FALSE otherwise
+	HRESULT IsLoaded();
+	/// Releases all the texture data & memory
+	HRESULT FreeData();
+	
+	/// Returns the texture data buffer
+	HRESULT AsFileInMemory([out] BYTE** ppData, [out] FWULONG* pnDataSize);
+
+	/// Sets (U, V) texture coordinates
+	HRESULT SetUVTile([in] FWFLOAT fUTile, [in] FWFLOAT fVTile);
+	/// Returns U texture coordinate
+	HRESULT GetUTile([out, retval] FWFLOAT* pfResult);
+	/// Returns V texture coordinate
+	HRESULT GetVTile([out, retval] FWFLOAT* pfResult);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup matplus
+/// \interface IMaterial
+/// MAT+ Generic Material.
+///
+/// This class models a textured or untextured material.
+/// If colours are not set, white is taken as default.
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(09B392F8-639D-478d-921C-4364B6C3DEF3),
+	helpstring("MAT+ material"),
+	pointer_default(unique)
+]
+interface IMaterial : IFWUnknown
+{
+	HRESULT SetAmbientColor([in] FWCOLOR value);						///< Sets the ambient colour value
+	HRESULT SetDiffuseColor([in] FWCOLOR value);						///< Sets the diffuse colour value
+	HRESULT SetSpecularColor([in] FWCOLOR value);						///< Sets the specular colour value
+	HRESULT SetShininess([in] FWFLOAT fValue);							///< Sets the shininess value - not used by the current implementation!
+	HRESULT SetShininessStrength([in] FWFLOAT fValue);					///< Sets the shininess strength - not used by the current implementation!
+	HRESULT SetSelfIlluminationOff();									///< Sets self illumination Off
+	HRESULT SetSelfIllumination(FWCOLOR color, FWFLOAT fStrength);		///< Sets self illumination colour and strength
+	HRESULT SetTwoSided([in] BOOL bValue);								///< Sets the two-sided attribute - not used by the current implementation!
+	HRESULT SetAlphaMode(FWULONG);										///< Sets the Alpha mpde - see \ref MAT_ALPHA values
+	HRESULT SetAlpha(FWFLOAT fAlpha);									///< Sets the Alpha mode to MAT_ALPHA_MATERIAL and sets the alpha channel for the Diffuse colour
+
+	HRESULT GetAmbientColor([out, retval] FWCOLOR* pResult);			///< Gets the ambient colour value
+	HRESULT GetDiffuseColor([out, retval] FWCOLOR* pResult);			///< Gets the diffuse colour value
+	HRESULT GetSpecularColor([out, retval] FWCOLOR* pResult);			///< Gets the specular colour value
+	HRESULT GetShininess([out, retval] FWFLOAT* pfResult);				///< Gets the shininess value - not used by the current implementation!
+	HRESULT GetShininessStrength([out, retval] FWFLOAT* pfResult);		///< Gets the shininess strength - not used by the current implementation!
+	HRESULT GetSelfIlluminationStrength([out, retval] FWFLOAT*);		///< Gets the self illumination strength value
+	HRESULT GetSelfIlluminationColor([out, retval] FWCOLOR* pResult);	///< Gets the self illumination color value
+	HRESULT GetTwoSided([out, retval] BOOL* pbResult);					///< Gets the two-sided attribute - not used by the current implementation!
+	HRESULT GetAlphaMode(FWULONG*);										///< Sets the Alpha mpde - see \ref MAT_ALPHA values
+	
+	HRESULT SetTexture([in] FWULONG iTexture, [in] ITexture* pTexture);	///< sets the material's texture
+	HRESULT GetTexture([in] FWULONG iTexture, [out, retval] ITexture** ppTexture);	///< gets the material's texture
+};
+
+///@}

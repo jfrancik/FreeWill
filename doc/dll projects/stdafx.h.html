@@ -1,0 +1,41 @@
+<html>
+	<head>
+		<title>FREE WILL+ How to create a DLL subproject</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=windows-1250">
+	</head>
+	<body>
+		<font face="Arial">
+			<H1>FREE WILL+ Coding Standards</H1>
+			<H2>StdAfx.h File for a DLL subproject</H2>
+			<p><font face="Courier New" size="2"><FONT color="green"> // stdafx.h : include file for 
+						standard system include files,<br>
+						// or project specific include files that are used frequently, but<br>
+						// are changed infrequently<br>
+						//</FONT>
+					<br>
+					<br>
+					<FONT color="blue">#pragma once</FONT>
+					<br>
+					<br>
+					<FONT color="blue">#define</FONT> WIN32_LEAN_AND_MEAN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<FONT color="green">// Exclude rarely-used stuff from Windows headers<br>
+					</FONT><FONT color="blue">#define</FONT> USE_MFC<br>
+					<br>
+					<FONT color="green">// Windows Header Files:</FONT>
+					<br>
+					<FONT color="blue">#ifdef</FONT> USE_MFC<br>
+					<FONT color="blue">#include</FONT> &lt;afxwin.h&gt;<br>
+					<FONT color="blue">#else<br>
+						#include</FONT> &lt;windows.h&gt;<br>
+					<FONT color="blue">#define</FONT> TRACE<br>
+					<FONT color="blue">#endif</FONT>
+					<br>
+					<br>
+					<FONT color="green">// TODO: reference additional headers your program requires 
+						here</FONT>
+					<br>
+				</font>
+			</p>
+		</font>
+	</body>
+</html>

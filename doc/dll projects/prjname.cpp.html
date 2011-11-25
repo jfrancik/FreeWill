@@ -1,0 +1,111 @@
+<html>
+	<head>
+		<title>FREE WILL+ How to create a DLL subproject</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=windows-1250">
+	</head>
+	<body>
+		<font face="Arial">
+			<h1>FREE WILL+ Coding Standards</h1>
+			<h2><em>&lt;prjname&gt;</em>.cpp File for a DLL subproject</h2>
+			<p><font face="Courier New" size="2"><font color="green">// <font color="#cc0000"><strong>prjname</strong></font>
+						.cpp : Defines the entry point for the DLL application.
+						<br>
+					</font></font><font face="Courier New" size="2"><font color="green">// </font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="#000000"><font color="blue">#include</font>
+						"stdafx.h" </font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green">// mandatory FW includes
+						<br>
+					</font></font><font face="Courier New" size="2"><font color="green"><font color="#0000ff">
+							#include</font> <font color="#000000">"../fwcommon/fwcommon.h"</font> // 
+						for macros and IFWillUnknown
+						<br>
+						<font color="#0000ff">#include</font> <font color="#000000">"../include/common_i.c"</font>
+						// for IID_IFWillUnknown </font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green">// CLSID definitions
+						<br>
+						<font color="#0000ff">#include</font> <font color="#000000">"../include/<font color="#cc0000"><strong>prjname</strong></font>_i.c"</font>
+					</font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green">// interfaces and IID definitions
+						<br>
+						<font color="#0000ff">#include</font> <font color="#000000">"../include/<font color="#cc0000"><strong>interface1</strong></font>.h"</font>
+						<br>
+						<font color="#0000ff">#include</font> <font color="#000000">"../include/<font color="#cc0000"><strong>interface1</strong></font>_i.c"</font>
+					</font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green">// Class implementation
+						<br>
+						<font color="#0000ff">#include</font> <font color="#000000">"<font color="#cc0000"><strong>class1</strong></font>.h"</font>
+					</font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green">////////////////////////////////////////////////////////////////////////////////////////////////////////
+						<br>
+					</font></font><font face="Courier New" size="2"><font color="green">//
+						<br>
+						// Factory Map - Used to create a factory for aech class
+						<br>
+						// Add line for each class implemented </font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green"><font color="#000000">BEGIN_FACTORY_MAP
+							<br>
+							<font color="#cc0000"><strong>&nbsp;&nbsp;&nbsp; FACTORY_ENTRY(Class1, "PrjName Class1 
+									Object", "Class1.Body", "Class1.Body.1")
+									<br>
+								</strong></font>END_FACTORY_MAP</font> </font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green">////////////////////////////////////////////////////////////////////////////////////////////////////////
+						<br>
+						//
+						<br>
+						// FreeWill Map - Used to register each class to create its object by 
+						FWillDevice
+						<br>
+						// Add line for each class implemented </font></font>
+			</p>
+			<p><font face="Courier New" color="#000000" size="2">BEGIN_FREEWILL_MAP
+					<br>
+					<font color="#cc0000"><strong>&nbsp;&nbsp;&nbsp; </strong></font></font><font face="Courier New" size="2">
+					<font color="green"><font color="#000000"><font color="#cc0000"><strong>FREEWILL_ENTRY("Class1", 
+									"Generic", Class1)
+									<br>
+								</strong></font>END_FREEWILL_MAP</font> </font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green">////////////////////////////////////////////////////////////////////////////////////////////////////////
+						<br>
+						//
+						<br>
+						// Mandatory initialisation of the DLL module </font></font>
+			</p>
+			<p><font face="Courier New" size="2"><font color="green"><font color="#000000"><font color="#0000ff">#ifdef
+							</font>USE_MFC&nbsp;<br>
+							<font color="#0000ff">class </font>CMyApp : <font color="#0000ff">public </font>
+							CWinApp
+							<br>
+							{
+							<br>
+							&nbsp;&nbsp;&nbsp; <font color="#0000ff">public</font>: <font color="#0000ff">virtual
+							</font>BOOL InitInstance() { DllMainHelper(AfxGetInstanceHandle(), 
+							DLL_PROCESS_ATTACH); <font color="#0000ff">return </font>TRUE; }
+							<br>
+							};
+							<br>
+							CMyApp myApp;
+							<br>
+							<font color="#0000ff">#else</font><br>
+							BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
+							<br>
+							{
+							<br>
+							&nbsp;&nbsp;&nbsp; <font color="#0000ff">return </font>DllMainHelper(hModule, 
+							reason);
+							<br>
+							}
+							<br>
+						</font></font><font color="#0000ff">#endif</font></font></p>
+			<p><font face="Courier New" size="2"></font>
+		</font><font face="Courier New" size="2">&nbsp;</P></font></FONT>
+	</body>
+</html>

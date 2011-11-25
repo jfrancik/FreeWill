@@ -1,0 +1,184 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// BODY+ IDL file
+/// \file 
+/// High level interface to the character body
+
+import "kineplus.idl";
+import "boundplus.idl";
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// @defgroup bodyplus BODY+ Module
+/// The High level interface to the character body.
+/// This module contains just a single interface IBody together with some useful enum definitions.
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Assumption:
+// all [in], [in, out] and [out, retval] pointers must be valid: the implementation has no need to validate them
+// all [out] pointers may be NULL pointers: the implementation must not assign any values in such case
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// LIST OF INTERFACES
+
+interface IBody;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup bodyplus
+/// @name BODY+ Identifiers for Body Parts
+/// Used to identify a body part in IBody object. 
+/// See IBody for details how body parts are identified.
+enum BODY_PART_ID
+{
+	BODY_NULL		= 0x000000,		///< NULL (always)
+	BODY_OBJECT		= 0x010000,		///< Body Root Node
+	BODY_ROOT		= 0x020000,		///< Body Root Node
+	BODY_PELVIS		= 0x030000,		///< Pelvis
+	BODY_SPINE		= 0x040000,		///< Spine
+	BODY_NECK		= 0x050000,		///< Neck
+	BODY_HEAD		= 0x060000,		///< Head
+	BODY_JAW		= 0x070000,		///< Low jaw		
+	BODY_BEAK		= 0x080000,		///< Beak or upper jaw
+	BODY_HORN		= 0x090000,		///< Horn (something added on top of the head)
+	BODY_PONYTAIL	= 0x0A0000,		///< Pony tail (something added on top of the head)
+	BODY_CLAVICLE	= 0x0B0000,		///< Clavicle
+	BODY_ARM		= 0x0C0000,		///< Arm (typically 2 links: upper arm & forearm)
+	BODY_HAND		= 0x0D0000,		///< Hand
+	BODY_FINGER		= 0x0E0000,		///< Finger
+	BODY_TAIL		= 0x0F0000,		///< Tail
+	BODY_HIP		= 0x100000,		///< Hip
+	BODY_LEG		= 0x110000,		///< Leg (typically 2 links: thigh & calf)
+	BODY_FOOT		= 0x120000,		///< Foot
+	BODY_TOE		= 0x130000,		///< Toe
+	BODY_SPUR		= 0x140000,		///< Spur (something attached to the foot)
+	BODY_LAST		= 0x150000,		///< end of the body part list
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup bodyplus
+/// @name BODY+ Body Part Identifiers for Left-Right
+/// Used to identify a body part in IBody object. 
+/// See IBody for details how body parts are identified.
+enum BODY_PART_LR
+{
+	BODY_RIGHT		= 0x0000,		///< Right side part
+	BODY_LEFT		= 0x0100,		///< Left side part
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup bodyplus
+/// @name BODY+ Body Part Indices - for fingers and toes only
+/// Used to identify a body part in IBody object. 
+/// See IBody for details how body parts are identified.
+enum BODY_PART_FINGERTOE
+{
+	BODY_1			= 0x0000,		///< Index (1) - for fingers and toes only
+	BODY_2			= 0x0200,		///< Index (2) - for fingers and toes only
+	BODY_3			= 0x0400,		///< Index (3) - for fingers and toes only
+	BODY_4			= 0x0600,		///< Index (4) - for fingers and toes only
+	BODY_5			= 0x0800,		///< Index (5) - for fingers and toes only
+	BODY_THUMB		= BODY_1,		///< Synonym for the thumb
+	BODY_INDEX		= BODY_2,		///< Synonym for the index finger
+	BODY_MIDDLE		= BODY_3,		///< Synonym for the middle finger
+	BODY_RING		= BODY_4,		///< Synonym for the ring finger
+	BODY_BABY		= BODY_5,		///< Synonym for the baby finger
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup bodyplus
+/// @name BODY+ Body Part Information Types
+/// Values to be passed to IBody::GetInfo and IBody::GetFInfo functions
+enum BODY_INFO
+{
+	BODY_INFO_NUMPARTS,		///< valid with BODY_FINGER and BODY_TOE only, returns number of fingers/toes
+	BODY_INFO_NUMSEG,		///< returns number of segments, 0 if body part does not exist
+	BODY_INFO_SEGCAP,		///< returns maximal number of segments acceptable in the given implementation
+	BODY_INFO_LENGTH,		///< returns the length of a body part (single segment only)
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup bodyplus
+/// @name BODY+ Body Schemas
+/// Body schema defines the standard in which body parts (or bones) are named.
+/// This value is to be passed to IBody::LoadBody function.
+enum BODY_SCHEME
+{
+	BODY_SCHEMA_DISCREET,		///< standard hierarchy from Discreet Character Studio bipeds
+	BODY_SCHEMA_ALIAS,			///< reserved for future Maya-focused extension
+	BODY_SCHEMA_RESERVED = 99,	///< values until 99 reserved
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup bodyplus
+/// \interface IBody
+/// BODY+ high level interface to the character body
+///
+/// This interface represents an array-based dictionary structure for uniform and efficient
+/// acquisition of body parts along with information on them. Whatever the input bones hierarchy,
+/// once properly attached to the IBody-based object all the body objects are available through 
+/// uniform FWULONG constants (see below).
+///
+/// \section bodyparts Identifying the Body Parts
+/// Many functions in this interface use nIndex param to identify a body part.
+/// This value is created by summing a number of constants, majority of them defined as enums:
+/// - BODY_XXXX Part Id - obligatory, see \ref BODY_PART_ID
+/// - BODY_RIGHT or BODY_LEFT to choose between left and right side - where applicable, see \ref BODY_PART_LR
+/// - BODY_1 .. BODY_5 - applicable for fingers and toes only, see \ref BODY_PART_FINGERTOE
+/// - any number from 0..255 to choose the link index - where applicable.
+///
+/// Examples:
+/// 
+/// - BODY_HEAD = head
+/// - BODY_SPINE + 2 = 3rd link of the spine
+/// - BODY_HAND + BODY_RIGHT = right hand
+/// - BODY_ARM + BODY_LEFT + 1 = left forehand
+/// - BODY_FINGER + BODY_LEFT + BODY_1 = first segment of the left thumb
+/// - BODY_FINGER + BODY_LEFT + BODY_RING + 2 = last segment of the left ring finger
+///
+/// \sa Implementation in FreeWillPlus::Body with support for 3DMax CharacterStudio characters
+//////////////////////////////////////////////////////////////////////////////////////////
+[
+	object,
+	uuid(E1C422BF-1EAB-4f9c-925E-3F9FA1EDD5E6),
+	helpstring("BODY+ Body Model"),
+	pointer_default(unique)
+]
+interface IBody : IFWUnknown
+{
+/// @name Loading body parts from an external model
+
+	/// Loads entire body using a given schema (see \ref BODY_SCHEME for list of available schemas)
+	HRESULT LoadBody(IKineNode *pBody, FWULONG nSchema);
+	/// Loads the object and attaches it to the body part identified by nIndex (see \ref bodyparts)
+	HRESULT LoadBodyPart(IKineNode *pNode, FWSTRING label, FWULONG nIndex);
+	/// Remove all the contents
+	HRESULT RemoveAll();
+
+/// @name Getting body parts
+
+	/// Returns the body part identified by nIndex (see \ref bodyparts)
+	HRESULT GetBodyPart(FWULONG nIndex, REFIID iid, [out, retval, iid_is(iid)] IFWUnknown **p);
+	/// Returns the body part identified by nIndex (see \ref bodyparts)
+	[local] IFWUnknown *BodyPart(FWULONG nIndex, REFIID iid);
+	/// Helper function: returns IKineChild for the body part identified by nIndex (see \ref bodyparts)
+	[local] IKineChild *BodyChild(FWULONG nIndex);
+	/// Helper function: returns IKineNode for the body part identified by nIndex (see \ref bodyparts)
+	[local] IKineNode *BodyNode(FWULONG nIndex);
+	/// Helper function: returns bounding volume for the body part identified by nIndex (see \ref bodyparts)
+	[local] IBounding  *BodyBounding(FWULONG nIndex);
+
+/// @name Queries
+
+	/// Returns information for the body part identified by nIndex (see \ref bodyparts); see \ref BODY_INFO for available types of information
+	HRESULT GetInfo(FWULONG nQuery, FWULONG nIndex, [out, retval] FWULONG*);
+	/// Floating point version of IBody::GetInfo
+	HRESULT GetFInfo(FWULONG nQuery, FWULONG nIndex, [out, retval] FWFLOAT*);
+	/// Returns global position (x, y, z) of the body part or (0, 0, 0) with FW_E_BADINDEX error code if bad part index
+	HRESULT GetXYZ(FWULONG nIndex, [out, retval] FWVECTOR *pv);
+
+/// @name Helpers
+
+	/// Creates a transform compatible with PELVIS node; returns FW_E_NOTREADY if no PELVIS set
+	HRESULT CreateCompatibleTransform([out, retval] ITransform**);
+};
+
+//@}
