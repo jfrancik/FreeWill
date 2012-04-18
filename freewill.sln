@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fwview", "fwview\fwview.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "doc", "doc\doc.vcxproj", "{3FDF80E7-C1DF-47FE-BCD5-B4EE3EBB467E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FWStarter", "FWStarter\FWStarter.vcxproj", "{0568E700-FF26-4194-876C-F0ED5F74829C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -41,6 +43,10 @@ Global
 		{40357FA2-8196-4CDA-BA70-6053A19CD7BE}.Release|Win32.Build.0 = Release|Win32
 		{3FDF80E7-C1DF-47FE-BCD5-B4EE3EBB467E}.Debug|Win32.ActiveCfg = Debug|Win32
 		{3FDF80E7-C1DF-47FE-BCD5-B4EE3EBB467E}.Release|Win32.ActiveCfg = Release|Win32
+		{0568E700-FF26-4194-876C-F0ED5F74829C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0568E700-FF26-4194-876C-F0ED5F74829C}.Debug|Win32.Build.0 = Debug|Win32
+		{0568E700-FF26-4194-876C-F0ED5F74829C}.Release|Win32.ActiveCfg = Release|Win32
+		{0568E700-FF26-4194-876C-F0ED5F74829C}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

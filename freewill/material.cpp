@@ -22,6 +22,7 @@ CMaterial::CMaterial()
 	memset(&m_colorSelfIllumination, 0, sizeof(m_colorSelfIllumination));;
 	m_bTwoSided = FALSE;
 	m_nAlphaMode = MAT_ALPHA_DISABLE;
+	m_nCullingMode = MAT_CULLING_DISABLE;
 }
 
 CMaterial::~CMaterial()

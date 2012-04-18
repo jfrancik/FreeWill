@@ -1087,10 +1087,10 @@ quat slerp(quat qa, quat qb, double t) {
 HRESULT __stdcall CTransMatrix::Interpolate(ITransform *pSrc, ITransform *pDest, FWDOUBLE fPhase)
 {
 	if (fPhase < 0.0001)
-		FromTransform(pSrc);
+		FromRotationTransform(pSrc);	// changed on 17/04/2012 (was: FromTransform)
 	else
 	if (fPhase > 0.9999)
-		FromTransform(pDest);
+		FromRotationTransform(pDest);	// changed on 17/04/2012 (was: FromTransform)
 	else
 	{
 		FWQUAT Q, Q1, Q2;

@@ -248,6 +248,7 @@ HRESULT _stdcall CDX9Renderer::RenderMesh(struct RNDR_MESHEDOBJ *pInfo)
 	dxMaterial.Ambient.a = dxMaterial.Diffuse.a = dxMaterial.Specular.a = 1.0f;
 
 	FWULONG nAlphaMode = MAT_ALPHA_DISABLE;
+	FWULONG nCullingMode = MAT_CULLING_DISABLE;
 	bool bTextured = false;
 
 	IMaterial *pMaterial = NULL;
@@ -255,6 +256,7 @@ HRESULT _stdcall CDX9Renderer::RenderMesh(struct RNDR_MESHEDOBJ *pInfo)
 	if (h == S_OK && pMaterial)
 	{
 		pMaterial->GetAlphaMode(&nAlphaMode);
+		pMaterial->GetCullingMode(&nCullingMode);
 
 		pMaterial->GetAmbientColor((FWCOLOR*)(&dxMaterial.Ambient));
 		pMaterial->GetDiffuseColor((FWCOLOR*)(&dxMaterial.Diffuse));
@@ -330,8 +332,35 @@ HRESULT _stdcall CDX9Renderer::RenderMesh(struct RNDR_MESHEDOBJ *pInfo)
 
 		delete [] pMatrices;
 	}
+	
+	switch (nCullingMode)
+	{
+	case MAT_CULLING_DISABLE:
+		h = m_pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+		if SUCCEEDED(h) h = m_pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pInfo->nVertexFirst, 0, pInfo->nVertexNum, pInfo->nFaceFirst*3, pInfo->nFaceNum); 
+		break;
+	case MAT_CULLING_CW:
+		h = m_pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+		if SUCCEEDED(h) h = m_pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pInfo->nVertexFirst, 0, pInfo->nVertexNum, pInfo->nFaceFirst*3, pInfo->nFaceNum); 
+		break;
+	case MAT_CULLING_CCW:
+		h = m_pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+		if SUCCEEDED(h) h = m_pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pInfo->nVertexFirst, 0, pInfo->nVertexNum, pInfo->nFaceFirst*3, pInfo->nFaceNum); 
+		break;
+	case MAT_CULLING_CW_CCW:
+		h = m_pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+		if SUCCEEDED(h) h = m_pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pInfo->nVertexFirst, 0, pInfo->nVertexNum, pInfo->nFaceFirst*3, pInfo->nFaceNum); 
+		if SUCCEEDED(h) h = m_pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+		if SUCCEEDED(h) h = m_pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pInfo->nVertexFirst, 0, pInfo->nVertexNum, pInfo->nFaceFirst*3, pInfo->nFaceNum); 
+		break;
+	case MAT_CULLING_CCW_CW:
+		h = m_pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+		if SUCCEEDED(h) h = m_pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pInfo->nVertexFirst, 0, pInfo->nVertexNum, pInfo->nFaceFirst*3, pInfo->nFaceNum); 
+		if SUCCEEDED(h) h = m_pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+		if SUCCEEDED(h) h = m_pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pInfo->nVertexFirst, 0, pInfo->nVertexNum, pInfo->nFaceFirst*3, pInfo->nFaceNum); 
+		break;
+	}
     
-	h = m_pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pInfo->nVertexFirst, 0, pInfo->nVertexNum, pInfo->nFaceFirst*3, pInfo->nFaceNum); 
 	if (FAILED(h)) return D3D_ERROR(h);
 
 	// release texture

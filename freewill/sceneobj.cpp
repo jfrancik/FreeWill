@@ -349,9 +349,7 @@ HRESULT CSceneObject::Render(IRndrGeneric *pRenderer)
 			{
 				info.iSubmesh = iSubmesh;
 				info.nFaceNum = pSubmeshLen[iSubmesh];
-
 				pRenderer->RenderMesh(&info);
-				
 				info.nFaceFirst += info.nFaceNum;
 				info.pTransformIndices += info.nIndexNum;
 			}

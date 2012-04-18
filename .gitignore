@@ -3,6 +3,12 @@
 Debug
 Release
 
+FWStarter
+FWStarter/*.*
+FWStarter_
+FWStarter_/*.*
+
+
 freewill/Debug
 freewill/Release
 freewill/*.aps
