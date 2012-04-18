@@ -42,12 +42,25 @@ enum MAT_ERRORS
 //////////////////////////////////////////////////////////////////////////////////////////
 /// \ingroup matplus
 /// @name MAT+ Material Transparency Modes (enum type)
-/// Codes used by IMaterial::SetTransparencyMode and IMaterial::GetTransparencyMode functions
+/// Codes used by IMaterial::SetAlphaMode and IMaterial::GetAlphaMode functions
 enum MAT_ALPHA
 {
 	MAT_ALPHA_DISABLE,						///< Disable all transparency
 	MAT_ALPHA_MATERIAL,						///< Use the material's diffuse colour alpha channel value
 	MAT_ALPHA_TEXTURE						///< Use alpha values stored in the texture, ignored if no texture set
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// \ingroup matplus
+/// @name MAT+ Material Culling Modes (enum type)
+/// Codes used by IMaterial::SetCullingMode and IMaterial::GetCullingMode functions
+enum MAT_CULLING
+{
+	MAT_CULLING_DISABLE,					///< Disable culling
+	MAT_CULLING_CW,							///< Clockwise culling
+	MAT_CULLING_CCW,						///< Counterclockwise culling
+	MAT_CULLING_CW_CCW,						///< Double culling, clockwise first
+	MAT_CULLING_CCW_CW,						///< Double culling, counterclockwise first - recommended for semi-transparent 3D objects like cubes
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +124,7 @@ interface IMaterial : IFWUnknown
 	HRESULT SetTwoSided([in] BOOL bValue);								///< Sets the two-sided attribute - not used by the current implementation!
 	HRESULT SetAlphaMode(FWULONG);										///< Sets the Alpha mpde - see \ref MAT_ALPHA values
 	HRESULT SetAlpha(FWFLOAT fAlpha);									///< Sets the Alpha mode to MAT_ALPHA_MATERIAL and sets the alpha channel for the Diffuse colour
+	HRESULT SetCullingMode(FWULONG);									///< Sets the culling mpde - see \ref MAT_CULLING values
 
 	HRESULT GetAmbientColor([out, retval] FWCOLOR* pResult);			///< Gets the ambient colour value
 	HRESULT GetDiffuseColor([out, retval] FWCOLOR* pResult);			///< Gets the diffuse colour value
@@ -120,7 +134,8 @@ interface IMaterial : IFWUnknown
 	HRESULT GetSelfIlluminationStrength([out, retval] FWFLOAT*);		///< Gets the self illumination strength value
 	HRESULT GetSelfIlluminationColor([out, retval] FWCOLOR* pResult);	///< Gets the self illumination color value
 	HRESULT GetTwoSided([out, retval] BOOL* pbResult);					///< Gets the two-sided attribute - not used by the current implementation!
-	HRESULT GetAlphaMode(FWULONG*);										///< Sets the Alpha mpde - see \ref MAT_ALPHA values
+	HRESULT GetAlphaMode(FWULONG*);										///< Gets the Alpha mpde - see \ref MAT_ALPHA values
+	HRESULT GetCullingMode(FWULONG*);									///< Sets the culling mpde - see \ref MAT_CULLING values
 	
 	HRESULT SetTexture([in] FWULONG iTexture, [in] ITexture* pTexture);	///< sets the material's texture
 	HRESULT GetTexture([in] FWULONG iTexture, [out, retval] ITexture** ppTexture);	///< gets the material's texture

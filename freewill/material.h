@@ -28,6 +28,7 @@ protected:
 	FWCOLOR m_colorSelfIllumination;
 	BOOL m_bTwoSided;
 	FWULONG m_nAlphaMode;
+	FWULONG m_nCullingMode;
 	ITexture *m_pTextures[MAX_MATERIAL_TEXTURES_COUNT];
 	
 public:
@@ -45,6 +46,7 @@ public:
 	virtual HRESULT __stdcall SetTwoSided(BOOL bVal)				{ m_bTwoSided = bVal; return S_OK; }
 	virtual HRESULT __stdcall SetAlphaMode(FWULONG val)				{ m_nAlphaMode = val; return S_OK; }
 	virtual HRESULT __stdcall SetAlpha(FWFLOAT fAlpha)				{ m_nAlphaMode = (fAlpha == 1) ? MAT_ALPHA_DISABLE : MAT_ALPHA_MATERIAL; m_colorDiffuse.a = fAlpha; return S_OK; }
+	virtual HRESULT __stdcall SetCullingMode(FWULONG val)			{ m_nCullingMode = val; return S_OK; }
 
 
 
@@ -57,6 +59,7 @@ public:
 	virtual HRESULT __stdcall GetSelfIlluminationColor(FWCOLOR* p)	{ if (p) *p = m_colorSelfIllumination; return S_OK; }
 	virtual HRESULT __stdcall GetTwoSided(BOOL* p)					{ if (p) *p = m_bTwoSided; return S_OK; }
 	virtual HRESULT __stdcall GetAlphaMode(FWULONG *p)				{ if (p) *p = m_nAlphaMode; return S_OK; }
+	virtual HRESULT __stdcall GetCullingMode(FWULONG *p)			{ if (p) *p = m_nCullingMode; return S_OK; }
 
 	virtual HRESULT __stdcall SetTexture(FWULONG iTexture, ITexture* pTexture);
 	virtual HRESULT __stdcall GetTexture(FWULONG iTexture, ITexture** ppTexture);
