@@ -227,8 +227,18 @@ int CChildView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		m_pCamera->Pan(DEG2RAD(70));
 		m_pCamera->Tilt(DEG2RAD(-5));
 
-		// make unwanted scene object invisible
+		// move the ball
 		IKineChild *pChild = NULL;
+		if SUCCEEDED(m_pScene->GetChild(L"Sphere02", &pChild))
+		{
+			ITransform *pT = NULL;
+			pChild->CreateCompatibleTransform(&pT);
+			pT->MulTranslationXYZ(-110, -30, 0);
+			pChild->PutLocalTransform(pT);
+			pChild->Release();
+		}
+
+		// make unwanted scene object invisible
 		ISceneObject *pObj = NULL;
 		if (SUCCEEDED(m_pScene->GetChild(L"Sphere01", &pChild)) && pChild && SUCCEEDED(pChild->QueryInterface(&pObj)))
 			pObj->PutVisible(FALSE);
@@ -416,12 +426,35 @@ void CChildView::OnActionsAction1()
 	m_pRenderer->GetPlayTime(&nStart);
 	FWULONG nDur = 500;
 		
-	IKineChild *pBall = NULL;
-	m_pScene->GetChild(L"Sphere02", &pBall);
-	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Take", m_pActionTick, nStart, nDur, L"", m_pBody[0], pBall);
+	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Point",    m_pActionTick, nStart, nDur, L"right", m_pBody[0], m_pScene, L"Sphere02.Sphere02");
 }
 
 void CChildView::OnActionsAction2()
+{
+	IFWUnknown *p = NULL;
+	FWULONG nStart;
+	m_pRenderer->GetPlayTime(&nStart);
+	FWULONG nDur = 500;
+		
+	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Take",    m_pActionTick, nStart, nDur, L"right", m_pBody[0], m_pScene, L"Sphere02.Sphere02");
+}
+
+void CChildView::OnActionsAction3()
+{
+	IFWUnknown *p = NULL;
+	FWULONG nStart;
+	m_pRenderer->GetPlayTime(&nStart);
+	FWULONG nDur = 500;
+
+	ITransform *pT = NULL;
+	m_pScene->CreateCompatibleTransform(&pT);
+	pT->MulRotationZ(DEG2RAD(90));
+	pT->MulRotationY(DEG2RAD(180));
+	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"RotateTo", m_pActionTick, nStart, nDur, m_pBody[0], BODY_HAND + BODY_RIGHT, pT, BODY_PELVIS);
+	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Reach",    m_pActionTick, nStart, nDur, L"right", m_pBody[0], BODY_FINGER + BODY_MIDDLE, m_pScene, L"Sphere02.Sphere02");
+}
+
+void CChildView::OnActionsAction4()
 {
 	IFWUnknown *p = NULL;
 	FWULONG nStart;
@@ -444,19 +477,7 @@ void CChildView::OnActionsAction2()
 }
 
 
-void CChildView::OnActionsAction3()
-{
-	IFWUnknown *p = NULL;
-	FWULONG nStart;
-	m_pRenderer->GetPlayTime(&nStart);
-	FWULONG nDur = 1500;
-
-	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Move", m_pActionTick, nStart, nDur, m_pScene, L"Sphere02.Sphere02", -200.0f, 0.0f, 0.0f);
-	((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 0.5f, 0.5f);
-}
-
-
-void CChildView::OnActionsAction4()
+void CChildView::OnActionsAction5()
 {
 	IFWUnknown *p = NULL;
 	FWULONG nStart;
@@ -464,11 +485,11 @@ void CChildView::OnActionsAction4()
 	FWULONG nDur = 1500;
 
 	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Move", m_pActionTick, nStart, nDur, m_pScene, L"Sphere02.Sphere02", 0.0f, 0.0f, 46.0f);
-	((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 0.5f, 0.5f);
+	((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 1, 1);
 }
 
 
-void CChildView::OnActionsAction5()
+void CChildView::OnActionsAction6()
 {
 	IFWUnknown *p = NULL;
 	FWULONG nStart;
@@ -476,16 +497,10 @@ void CChildView::OnActionsAction5()
 	FWULONG nDur = 1000;
 
 	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Move", m_pActionTick, nStart, nDur, m_pScene, L"Sphere02.Sphere02", -400.0f, 0.0f, 0.0f);
+	((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 0, 1);
 	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Move", m_pActionTick, nStart, nDur, m_pScene, L"Sphere02.Sphere02", 0.0f, 0.0f, 46.0f);
-	((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 0.5f, 0.5f);
+	((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 1, 1);
 }
-
-
-
-void CChildView::OnActionsAction6()
-{
-}
-
 
 void CChildView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {

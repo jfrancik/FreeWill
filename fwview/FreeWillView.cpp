@@ -1216,7 +1216,7 @@ void CFreeWillView::OnTestA1()
 	IFWUnknown *p = NULL;
 	m_pScene->CreateCompatibleTransform(&pT);
 
-	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"RotateTo", m_pActionTick, 0, 1500, m_pBody, BODY_HAND + BODY_RIGHT, pT, m_pBody, BODY_ARM + BODY_RIGHT);
+//	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"RotateTo", m_pActionTick, 0, 1500, m_pBody, BODY_HAND + BODY_RIGHT, pT, m_pBody, BODY_ARM + BODY_RIGHT);
 	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Reach",    m_pActionTick, 0, 2000, L"right", m_pBody, BODY_FINGER + BODY_MIDDLE, m_pScene, L"Sphere02.Sphere02");
 
 	pT->Release();
