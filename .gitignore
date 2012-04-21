@@ -56,3 +56,9 @@ fwlib/Debug
 fwlib/Release
 fwlib/*.aps
 fwlib/*.user
+
+FWStarter/Debug
+FWStarter/Release
+FWStarter/*.aps
+FWStarter/*.user
+

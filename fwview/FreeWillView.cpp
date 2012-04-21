@@ -957,7 +957,8 @@ void CFreeWillView::OnTestB1()
 	IAction *pAction = NULL;
 
 	// make the sphere moving
-	{CParam params[] = { m_pActionTick, 0, 1800, m_pScene, L"Sphere02.Sphere02", 0, 0, 12 };
+	FWVECTOR vector = { 0, 0, 12 };
+	{CParam params[] = { m_pActionTick, 0, 1800, m_pScene, L"Sphere02.Sphere02", vector};
 	m_pFWDevice->CreateObjectEx(L"Action", L"Move", sizeof(params)/sizeof(FWPARAM), params, IID_IAction, (IFWUnknown**)&pAction);}
 	pAction->SetEnvelope(ACTION_ENV_PARA, 1.0f, 1.0f);
 	pAction->Release();
@@ -1211,30 +1212,12 @@ void CFreeWillView::OnTestA1()
 	// Reach Action Test
 	OnTestPrepare(L"scene_ball.3d", false);
 
-	IKineChild *pChild = NULL;
-	m_pScene->GetChild(L"Sphere02.Sphere02", &pChild);
-	ASSERT(pChild);
-
 	ITransform *pT = NULL;
-	pChild->GetLocalTransformRef(&pT);
-	pT->FromScaling(0.25f, 0.25f, 0.25f);
-	pChild->Invalidate();
-	pT->Release();
+	IFWUnknown *p = NULL;
+	m_pScene->CreateCompatibleTransform(&pT);
 
-	IAction *pAction = NULL;
-
-	pChild->CreateCompatibleTransform(&pT);
-	pChild->Release();
-
-	{CParam params[] = { m_pActionTick, 0, 1500, m_pScene, L"Bip01.L Hand", pT, L"Bip01.L Forearm" };
-	pT->FromRotationZ(DEG2RAD(70));
-	m_pFWDevice->CreateObjectEx(L"Action", L"RotateTo", sizeof(params)/sizeof(FWPARAM), params, IID_IAction, (IFWUnknown**)&pAction);}
-	pAction->Release();
-
-	{ CParam params[] = { 
-		  m_pActionTick, 0, 2000, L"right", m_pBody, BODY_FINGER + BODY_MIDDLE, m_pScene, L"Sphere02.Sphere02" };
-	m_pFWDevice->CreateObjectEx(L"Action", L"Reach", sizeof(params)/sizeof(FWPARAM), params, IID_IAction, (IFWUnknown**)&pAction);}
-	pAction->Release();
+	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"RotateTo", m_pActionTick, 0, 1500, m_pBody, BODY_HAND + BODY_RIGHT, pT, m_pBody, BODY_ARM + BODY_RIGHT);
+	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Reach",    m_pActionTick, 0, 2000, L"right", m_pBody, BODY_FINGER + BODY_MIDDLE, m_pScene, L"Sphere02.Sphere02");
 
 	pT->Release();
 }
