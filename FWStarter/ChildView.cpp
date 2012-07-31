@@ -194,6 +194,9 @@ int CChildView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 			// load body 1
 			m_pBody[0]->LoadBody(pBody1, BODY_SCHEMA_DISCREET);
 
+			pBody1->Release();
+			pBody1 = m_pBody[0]->BodyNode(BODY_OBJECT);
+
 			// reproduce body
 			pBody1->ReproduceEx(IID_IKineNode, (IFWUnknown**)&pBody2);
 			m_pScene->AddChild(L"Bip02", pBody2);
@@ -484,8 +487,18 @@ void CChildView::OnActionsAction5()
 	m_pRenderer->GetPlayTime(&nStart);
 	FWULONG nDur = 1500;
 
+	float h = 46;
 	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Move", m_pActionTick, nStart, nDur, m_pScene, L"Sphere02.Sphere02", 0.0f, 0.0f, 46.0f);
 	((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 1, 1);
+	for (int i = 0; i < 20; i++)
+	{
+		h *= 0.75;
+		nDur *= 0.75;
+		p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Move", m_pActionTick, p, nDur, m_pScene, L"Sphere02.Sphere02", 0.0f, 0.0f, -h);
+		((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 0, 0);
+		p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Move", m_pActionTick, p, nDur, m_pScene, L"Sphere02.Sphere02", 0.0f, 0.0f, h);
+		((IAction*)p)->SetEnvelope(ACTION_ENV_PARA, 1, 1);
+	}
 }
 
 
