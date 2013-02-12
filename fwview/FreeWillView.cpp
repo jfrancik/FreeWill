@@ -222,7 +222,7 @@ void CFreeWillView::OnDraw(CDC *pDC)
 	// draw - DX
 	if (m_pRenderer->IsPlaying() == S_OK && m_pRenderer->IsDeviceAvailable() == S_OK)
 	{
-		FWULONG nMSec;
+		FWLONG nMSec;
 		m_pRenderer->GetPlayTime(&nMSec);
 		m_pActionTick->RaiseEvent(nMSec, EVENT_TICK, nMSec, 0);
 		if (!m_pActionTick->AnySubscriptionsLeft())

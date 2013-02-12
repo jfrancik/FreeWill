@@ -14,6 +14,8 @@
 #include "freewill.c"
 #include "freewilltools.h"
 
+#include <sstream>
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -72,6 +74,7 @@ BEGIN_MESSAGE_MAP(CChildView, CWnd)
 	ON_WM_LBUTTONDOWN()
 	ON_WM_LBUTTONUP()
 	ON_WM_MOUSEMOVE()
+	ON_UPDATE_COMMAND_UI(ID_INDICATOR_SCRL, &CChildView::OnUpdateIndicatorScrl)
 END_MESSAGE_MAP()
 
 
@@ -318,6 +321,7 @@ int CChildView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 		// Start playing!
 		m_pRenderer->Play();
+		m_pRenderer->PutPlayTime(-3000);
 	}
 	catch (eError e)
 	{
@@ -355,7 +359,7 @@ BOOL CChildView::PreCreateWindow(CREATESTRUCT& cs)
 void CChildView::OnTimer(UINT_PTR nIDEvent)
 {
 	// Proceed with the Animation
-	FWULONG nMSec;
+	FWLONG nMSec;
 	m_pRenderer->GetPlayTime(&nMSec);
 	m_pActionTick->RaiseEvent(nMSec, EVENT_TICK, nMSec, 0);
 
@@ -425,7 +429,7 @@ void CChildView::OnTimer(UINT_PTR nIDEvent)
 void CChildView::OnActionsAction1()
 {
 	IFWUnknown *p = NULL;
-	FWULONG nStart;
+	FWLONG nStart;
 	m_pRenderer->GetPlayTime(&nStart);
 	FWULONG nDur = 500;
 		
@@ -435,7 +439,7 @@ void CChildView::OnActionsAction1()
 void CChildView::OnActionsAction2()
 {
 	IFWUnknown *p = NULL;
-	FWULONG nStart;
+	FWLONG nStart;
 	m_pRenderer->GetPlayTime(&nStart);
 	FWULONG nDur = 500;
 		
@@ -445,7 +449,7 @@ void CChildView::OnActionsAction2()
 void CChildView::OnActionsAction3()
 {
 	IFWUnknown *p = NULL;
-	FWULONG nStart;
+	FWLONG nStart;
 	m_pRenderer->GetPlayTime(&nStart);
 	FWULONG nDur = 500;
 
@@ -460,7 +464,7 @@ void CChildView::OnActionsAction3()
 void CChildView::OnActionsAction4()
 {
 	IFWUnknown *p = NULL;
-	FWULONG nStart;
+	FWLONG nStart;
 	m_pRenderer->GetPlayTime(&nStart);
 	FWULONG nDur = 500;
 
@@ -483,9 +487,9 @@ void CChildView::OnActionsAction4()
 void CChildView::OnActionsAction5()
 {
 	IFWUnknown *p = NULL;
-	FWULONG nStart;
+	FWLONG nStart;
 	m_pRenderer->GetPlayTime(&nStart);
-	FWULONG nDur = 1500;
+	FWLONG nDur = 1500;
 
 	float h = 46;
 	p = FWCreateObjWeakPtr(m_pFWDevice, L"Action", L"Move", m_pActionTick, nStart, nDur, m_pScene, L"Sphere02.Sphere02", 0.0f, 0.0f, 46.0f);
@@ -505,7 +509,7 @@ void CChildView::OnActionsAction5()
 void CChildView::OnActionsAction6()
 {
 	IFWUnknown *p = NULL;
-	FWULONG nStart;
+	FWLONG nStart;
 	m_pRenderer->GetPlayTime(&nStart);
 	FWULONG nDur = 1000;
 
@@ -561,4 +565,17 @@ void CChildView::OnMouseMove(UINT nFlags, CPoint point)
 	}
 
 	CWnd::OnMouseMove(nFlags, point);
+}
+
+
+void CChildView::OnUpdateIndicatorScrl(CCmdUI *pCmdUI)
+{
+	FWLONG nTime;
+	m_pRenderer->GetPlayTime(&nTime);
+
+	std::wstringstream str;
+	if (nTime < 0) { str << "-"; nTime = -nTime; }
+	str << nTime / 3600000 << ":" << (nTime % 3600000) / 60000 << ":" << (nTime % 60000) / 1000 << "." << (nTime % 1000) / 100;
+
+	pCmdUI->SetText(str.str().c_str());
 }

@@ -90,10 +90,11 @@ public:
 	virtual HRESULT _stdcall Stop();
 	virtual HRESULT _stdcall GetAccel(/*[out, retval]*/ FWFLOAT *pA);
 	virtual HRESULT _stdcall PutAccel(FWFLOAT nA);
-	virtual HRESULT _stdcall GetTotalPlayingTime(/*[out, retval]*/ FWULONG *pnMSec);
-	virtual HRESULT _stdcall PutTotalPlayingTime(FWULONG nMSec);
-	virtual HRESULT _stdcall GetPlayTime(/*[out, retval]*/ FWULONG *pnMSec);
-	virtual HRESULT _stdcall PutPlayTime(FWULONG pnMSec);
+	virtual HRESULT _stdcall GetTotalPlayingTime(/*[out, retval]*/ FWLONG *pnMSec);
+	virtual HRESULT _stdcall PutTotalPlayingTime(FWLONG nMSec);
+	virtual HRESULT _stdcall ClearTotalPlayingTime();
+	virtual HRESULT _stdcall GetPlayTime(/*[out, retval]*/ FWLONG *pnMSec);
+	virtual HRESULT _stdcall PutPlayTime(FWLONG pnMSec);
 
 	// Low level access
 	virtual HRESULT _stdcall GetDeviceHandle(FWULONG nId, /*[out, retval]*/ FWHANDLE *pHandle);
@@ -138,10 +139,12 @@ protected:
 	IMeshVertexBuffer *m_pVertexBuffer;		// the vertex buffer prvided by the renderer
 	IMeshFaceBuffer *m_pFaceBuffer;			// the face buffer prvided by the renderer
 
-	DWORD m_nTotalTime;						// the animation total time
-	DWORD m_nStartTime;						// the animation start time
-	DWORD m_nLastTime;						// time of the last successful frame - used by Pause function
+	FWLONG m_nTotalTime;					// the animation total time
+	FWULONG m_nStartTime;					// the animation start time
+	FWULONG m_nLastTime;					// time of the last successful frame - used by Pause function
 	FWFLOAT m_fAccel;						// the accelaration factor (0.5=2xslower, 1=normal, 2=2xfaster)
+	BOOL m_bTotal;							// set if m_nTotalTime value is known
+	BOOL m_bPlay;							// the play flag (also on when paused)
 	BOOL m_bPause;							// the pause flag
 
 	// OffScreen Device Variables
@@ -166,7 +169,7 @@ public:
 		m_DXBackColor(D3DCOLOR_XRGB(0, 0, 224)), 
         m_pITransformView(NULL), m_pITransformProjection(NULL),
 		m_pVertexBuffer(NULL), m_pFaceBuffer(NULL), 
-		m_nTotalTime(0), m_nStartTime(0), m_nLastTime(0), m_fAccel(1.0f), m_bPause(false),
+		m_nTotalTime(0), m_nStartTime(0), m_nLastTime(0), m_fAccel(1.0f), m_bTotal(false), m_bPlay(false), m_bPause(false),
 		m_bOnScreen(true),
 		m_pOffsSurface(NULL), m_pOffsDS(NULL), m_pBackSurface(NULL), m_pBackDS(NULL),
 		m_nOffsW(0), m_nOffsH(0), m_pStillFilename(NULL), m_pAviFile(NULL) 

@@ -122,10 +122,11 @@ interface IRenderer : IRndrGeneric
 	HRESULT Stop();				///< Stops the animation (Stop mode)
 	HRESULT GetAccel([out, retval] FWFLOAT *pA);	///< Gets accelaration factor (1=normal, <1=slow, >1=fast)
 	HRESULT PutAccel(FWFLOAT nA);					///< Puts the accelaration factor (1=normal, <1=slow, >1=fast)
-	HRESULT GetTotalPlayingTime([out, retval] FWULONG *pnMSec);	///< Gets the total playing time, if known
-	HRESULT PutTotalPlayingTime(FWULONG nMSec);					///< Puts the total playing time, if known
-	HRESULT GetPlayTime([out, retval] FWULONG *pnMSec);			///< Gets time elapsed since the beginning of the current animation sequence
-	HRESULT PutPlayTime(FWULONG pnMSec);							///< Puts the time elapsed since the beginning of the current animation sequence
+	HRESULT GetTotalPlayingTime([out, retval] FWLONG *pnMSec);	///< Gets the total (final) playing time, if known
+	HRESULT PutTotalPlayingTime(FWLONG nMSec);					///< Puts the total (final) playing time, if known
+	HRESULT ClearTotalPlayingTime();							///< Clears the total (final) playing time
+	HRESULT GetPlayTime([out, retval] FWLONG *pnMSec);			///< Gets time elapsed since the beginning of the current animation sequence
+	HRESULT PutPlayTime(FWLONG pnMSec);							///< Puts the time elapsed since the beginning of the current animation sequence - may be set to a negative value!
 
 	/// @name Low level access
 	/// Function providing handlers necessary for low level, platform-specific processing

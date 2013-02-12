@@ -120,7 +120,7 @@ public:
 
 class CActionWalk : public CActionLegged
 {
-	IAction* MakeStep(FWULONG nTimeStamp);
+	IAction* MakeStep(FWLONG nTimeStamp);
 public:
 
 	// Overrides

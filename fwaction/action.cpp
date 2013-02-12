@@ -27,7 +27,7 @@ using namespace std;
 ///////////////////////////////////////////////////////////
 // Class CAction
 
-CAction::ACTION_SUBS_EX::ACTION_SUBS_EX(IAction *pOriginator, IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWULONG nTrigger, FWULONG nId)
+CAction::ACTION_SUBS_EX::ACTION_SUBS_EX(IAction *pOriginator, IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWLONG nTrigger, FWULONG nId)
 { 
 	this->pOriginator = pOriginator;
 	this->pSubscriber = pSubscriber;
@@ -100,30 +100,35 @@ HRESULT CAction::QueryStdParams(IFWEnumParams *pEnum, struct ACTION_SUBS **ppSub
 	if FAILED(h) return ERROR(h);	// This parameter is obligatory
 
 	// 2nd, option 1: Start Time
-	h = pEnum->QueryULONG(&m_nStartTime);
+	h = pEnum->QueryLONG(&m_nStartTime);
 
 	// 2nd, option 2: Previous Action
 	if FAILED(h) h = pEnum->QueryPUNKNOWN(IID_IAction, (FWPUNKNOWN*)&pPrevAction);
 
 	// 3rd, Period, optional, only taken if 2nd successfully read
-	if SUCCEEDED(h) pEnum->QueryULONG(&m_nPeriod);
+	if SUCCEEDED(h) pEnum->QueryLONG(&m_nPeriod);
 
 	// 4th, Style, optional
 	pEnum->QuerySTRING(&pStyle);
 
 	// Standard operations now...
 	// Subscribe, Suspend and SetStyleString never fails in this implementation so no checks are done...
-	if (pTickSource) 
-	{
-		pTickSource->Subscribe(this, EVENT_TICK, ACTION_GTE, m_nStartTime, 0, ppSubs);
-		pTickSource->Release();
-	}
 	if (pPrevAction) 
 	{
+		// modified: 12/02/13 - actions hung on previous action go as ACTION_ANY rather than ACTION_GTE
+		if (pTickSource) 
+			pTickSource->Subscribe(this, EVENT_TICK, ACTION_ANY, 0, 0, ppSubs);
 		pPrevAction->Subscribe(this, EVENT_END, ACTION_ANY | ACTION_ONCE | ACTION_RESUME, 0, 0, NULL);
 		pPrevAction->Release();
 		h = Suspend(0);
 	}
+	else
+	if (pTickSource) 
+		pTickSource->Subscribe(this, EVENT_TICK, ACTION_GTE, m_nStartTime, 0, ppSubs);
+
+	if (pTickSource) 
+		pTickSource->Release();
+
 	SetStyleString(pStyle);
 
 	return S_OK;
@@ -140,7 +145,7 @@ HRESULT CAction::ErrorStdParams(IFWEnumParams *pEnum, HRESULT h)
 //////////////////////////////////////////////
 // Subscription
 
-HRESULT CAction::Subscribe(IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWULONG nTrigger, FWULONG nId, struct ACTION_SUBS **pHandle)
+HRESULT CAction::Subscribe(IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWLONG nTrigger, FWULONG nId, struct ACTION_SUBS **pHandle)
 {
 	if (pSubscriber == this)
 		nFlags |= ACTION_WEAKPTR;	// auto-references are always weak - to avoid looped refs
@@ -188,13 +193,13 @@ HRESULT CAction::Subscribe(IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags,
 	return S_OK;
 }
 
-HRESULT CAction::UnSubscribe(FWULONG nTimeStamp, ACTION_SUBS *pSubs)
+HRESULT CAction::UnSubscribe(FWLONG nTimeStamp, ACTION_SUBS *pSubs)
 {
 	if (pSubs->pOriginator != this)
 		return pSubs->pOriginator->UnSubscribe(nTimeStamp, pSubs);
 	else
 	{
-		pSubs->pSubscriber->SendEvent(nTimeStamp, EVENT_UNSUBSCRIBE, 0, (FWULONG)pSubs);
+		pSubs->pSubscriber->SendEvent(nTimeStamp, EVENT_UNSUBSCRIBE, 0, (FWLONG)pSubs);
 		if ((pSubs->nFlags & ACTION_WEAKPTR) == 0)
 			pSubs->pSubscriber->Release();
 
@@ -300,7 +305,7 @@ HRESULT CAction::IsStyle(FWSTRING strStyle)
 //////////////////////////////////////////////
 // Life Cycle
 
-HRESULT CAction::Suspend(FWULONG nTimeStamp)
+HRESULT CAction::Suspend(FWLONG nTimeStamp)
 {
 	m_nSuspended++;
 	if (m_nSuspended == 1)
@@ -312,7 +317,7 @@ HRESULT CAction::Suspend(FWULONG nTimeStamp)
 	return S_OK;
 }
 
-HRESULT CAction::Resume(FWULONG nTimeStamp)
+HRESULT CAction::Resume(FWLONG nTimeStamp)
 {
 	if (m_nSuspended == 0) return S_OK;		// already resumed
 	m_nSuspended--;
@@ -369,7 +374,7 @@ HRESULT CAction::Die(struct ACTION_EVENT *pEvent)
 	pEvent->pSubs->nFlags |= ACTION_MORITURI; return S_OK;
 }
 
-HRESULT CAction::GetTime(struct ACTION_EVENT *pEvent, FWULONG *p)
+HRESULT CAction::GetTime(struct ACTION_EVENT *pEvent, FWLONG *p)
 {
 	if (!p) return S_OK;
 	*p = pEvent->nTimeStamp - StartTime();
@@ -504,7 +509,7 @@ HRESULT CAction::ApplyEnvelope(struct ACTION_EVENT *pEvent, FWULONG timeIn, FWUL
 //////////////////////////////////////////////
 // Events
 
-HRESULT CAction::SendEvent(FWULONG nTimeStamp, FWULONG nEvent, FWULONG nSubCode, FWULONG nReserved)
+HRESULT CAction::SendEvent(FWLONG nTimeStamp, FWULONG nEvent, FWLONG nSubCode, FWLONG nReserved)
 {
 	ACTION_EVENT ev = { nTimeStamp, nEvent, nSubCode, nReserved, NULL, NULL };
 	return SendEventEx(&ev);
@@ -526,14 +531,14 @@ HRESULT CAction::SendEventEx(struct ACTION_EVENT *pEvent)
 	return h;
 }
 
-HRESULT CAction::RaiseEvent(FWULONG nTimeStamp, FWULONG nEvent, FWULONG nSubCode, FWULONG nReserved)
+HRESULT CAction::RaiseEvent(FWLONG nTimeStamp, FWULONG nEvent, FWLONG nSubCode, FWLONG nReserved)
 {
 	ACTION_EVENT ev = { nTimeStamp, nEvent, nSubCode, nReserved, NULL, NULL };
 	return RaiseEventEx(&ev);
 }
 
 		// helper function
-		FWULONG _GetTimeSetting(ACTION_SUBS *pSubs, ACTION_EVENT *pEvent)
+		FWLONG _GetTimeSetting(ACTION_SUBS *pSubs, ACTION_EVENT *pEvent)
 		{
 			if (pSubs->nFlags & ACTION_NOTIME) return pEvent->nTimeStamp;
 			if ((pSubs->nFlags & ACTION_MASK_LTE_GTE) && (pSubs->nFlags & ACTION_ONCE))
@@ -552,7 +557,7 @@ HRESULT CAction::RaiseEventEx(struct ACTION_EVENT *pEvent)
 	if (pEvent->pSubs && (pEvent->pSubs->nFlags & ACTION_MASK_MODE) != ACTION_ONCE && (pEvent->pSubs->nFlags & ACTION_RESERVED_1) == 0)
 	{
 		pEvent->pSubs->nFlags |= ACTION_RESERVED_1;
-		RaiseEvent(pEvent->nTimeStamp, EVENT_BEGIN, StartTime(), (FWULONG)pEvent);
+		RaiseEvent(pEvent->nTimeStamp, EVENT_BEGIN, StartTime(), (FWLONG)pEvent);
 	}
 
 	// process the event
@@ -666,7 +671,7 @@ HRESULT CAction::RaiseEventEx(struct ACTION_EVENT *pEvent)
 	if (pEvent->pSubs && IsMorituri(pEvent) == S_OK)
 	{
 		if ((pEvent->pSubs->nFlags & ACTION_MASK_MODE) != ACTION_ONCE)		// no EVENT_END for ACTION_ONCE actions
-			RaiseEvent(pEvent->nTimeStamp, EVENT_END, CompleteTime(), (FWULONG)pEvent);
+			RaiseEvent(pEvent->nTimeStamp, EVENT_END, CompleteTime(), (FWLONG)pEvent);
 		pEvent->pSubs->pOriginator->UnSubscribe(pEvent->nTimeStamp, pEvent->pSubs);
 	}
 

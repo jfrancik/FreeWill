@@ -455,7 +455,7 @@ CActionWalk::~CActionWalk()
 {
 }
 
-IAction *CActionWalk::MakeStep(FWULONG nTimeStamp)
+IAction *CActionWalk::MakeStep(FWLONG nTimeStamp)
 {
 	bool bOpen = IsStyle(L"open") == S_OK;
 

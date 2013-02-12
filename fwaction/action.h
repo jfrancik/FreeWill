@@ -27,9 +27,9 @@ protected:
 	FWULONG m_nSuspended;
 
 	// Time Data
-	FWULONG m_nStartTime;			// start time for the action (considering suspend times)
-	FWULONG m_nPeriod;				// the period (total time) of action
-	FWULONG m_nSuspendTime;			// time when action suspended or zero
+	FWLONG m_nStartTime;			// start time for the action (considering suspend times)
+	FWLONG m_nPeriod;				// the period (total time) of action
+	FWLONG m_nSuspendTime;			// time when action suspended or zero
 	FWFLOAT m_fTimePrev;			// time stamp for the GetProgPhase function
 
 	// Style info (optional)
@@ -58,7 +58,7 @@ protected:
 	// Contains C++ specific info: unsubscribtion iterator and sorting operators
 	struct ACTION_SUBS_EX : public ACTION_SUBS
 	{
-		ACTION_SUBS_EX(IAction *pOriginator, IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWULONG nTrigger = 0, FWULONG nId = 0);
+		ACTION_SUBS_EX(IAction *pOriginator, IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWLONG nTrigger = 0, FWULONG nId = 0);
 		LIST_OF_SUBS *pColl;
 		LIST_OF_SUBS::iterator iter;
 		friend bool operator <(const ACTION_SUBS_EX &i1, const ACTION_SUBS_EX &i2) { return i1.nTrigger < i2.nTrigger; }
@@ -111,8 +111,8 @@ protected:
 	// Subscription
 
 public:
-	virtual HRESULT __stdcall Subscribe(IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWULONG nTrigger, FWULONG nId, struct ACTION_SUBS **pHandle);
-	virtual HRESULT __stdcall UnSubscribe(FWULONG nTimeStamp, ACTION_SUBS *pSubs);
+	virtual HRESULT __stdcall Subscribe(IAction *pSubscriber, FWULONG nEvent, FWULONG nFlags, FWLONG nTrigger, FWULONG nId, struct ACTION_SUBS **pHandle);
+	virtual HRESULT __stdcall UnSubscribe(FWLONG nTimeStamp, ACTION_SUBS *pSubs);
 	virtual HRESULT __stdcall UnSubscribeAll();
 	virtual HRESULT __stdcall GetSubscriptionCount(/*[out, retval]*/ FWULONG *p);
 	virtual FWULONG __stdcall SubscriptionCount();
@@ -129,20 +129,20 @@ public:
 	//////////////////////////////////////////////
 	// Life Cycle
 
-	virtual HRESULT __stdcall Suspend(FWULONG nTimeStamp);
-	virtual HRESULT __stdcall Resume(FWULONG nTimeStamp);
+	virtual HRESULT __stdcall Suspend(FWLONG nTimeStamp);
+	virtual HRESULT __stdcall Resume(FWLONG nTimeStamp);
 	virtual HRESULT __stdcall IsSuspended();
 
 	//////////////////////////////////////////////
 	// Time and Phase Functions
 
-	virtual HRESULT __stdcall SetStartTime(FWULONG nStartTime)	{ m_nStartTime = nStartTime; return S_OK; }
-	virtual HRESULT __stdcall GetStartTime(FWULONG *p)			{ if (p) *p = m_nStartTime; return S_OK; }
-	virtual FWULONG __stdcall StartTime()						{ return m_nStartTime; }
-	virtual HRESULT __stdcall GetPeriod(FWULONG *p)				{ if (p) *p = m_nPeriod; return S_OK; }
-	virtual FWULONG __stdcall Period()							{ return m_nPeriod; }
-	virtual HRESULT __stdcall GetCompleteTime(FWULONG *p)		{ if (p) *p = StartTime() + Period(); return S_OK; }
-	virtual FWULONG __stdcall CompleteTime()					{ return StartTime() + Period(); }
+	virtual HRESULT __stdcall SetStartTime(FWLONG nStartTime)	{ m_nStartTime = nStartTime; return S_OK; }
+	virtual HRESULT __stdcall GetStartTime(FWLONG *p)			{ if (p) *p = m_nStartTime; return S_OK; }
+	virtual FWLONG  __stdcall StartTime()						{ return m_nStartTime; }
+	virtual HRESULT __stdcall GetPeriod(FWLONG *p)				{ if (p) *p = m_nPeriod; return S_OK; }
+	virtual FWLONG  __stdcall Period()							{ return m_nPeriod; }
+	virtual HRESULT __stdcall GetCompleteTime(FWLONG *p)		{ if (p) *p = StartTime() + Period(); return S_OK; }
+	virtual FWLONG  __stdcall CompleteTime()					{ return StartTime() + Period(); }
 
 	virtual HRESULT __stdcall IsStarted(struct ACTION_EVENT *pEvent);
 	virtual HRESULT __stdcall IsOverdue(struct ACTION_EVENT *pEvent);
@@ -150,10 +150,10 @@ public:
 
 	virtual HRESULT __stdcall Die(struct ACTION_EVENT *pEvent);
 
-	virtual HRESULT __stdcall GetTime(struct ACTION_EVENT *pEvent, FWULONG *p);
+	virtual HRESULT __stdcall GetTime(struct ACTION_EVENT *pEvent, FWLONG *p);
 	virtual HRESULT __stdcall GetPhase(struct ACTION_EVENT *pEvent, FWFLOAT *p);
 
-	virtual FWULONG __stdcall Time(struct ACTION_EVENT *pEvent)		{ FWULONG t; GetTime(pEvent, &t); return t; }
+	virtual FWLONG  __stdcall Time(struct ACTION_EVENT *pEvent)		{ FWLONG t; GetTime(pEvent, &t); return t; }
 	virtual FWFLOAT __stdcall Phase(struct ACTION_EVENT *pEvent)	{ FWFLOAT ph; GetPhase(pEvent, &ph); return ph; }
 
 	virtual HRESULT __stdcall GetDeltaPhase(struct ACTION_EVENT *pEvent, FWFLOAT *p);
@@ -178,9 +178,9 @@ public:
 	//////////////////////////////////////////////
 	// Events
 
-	virtual HRESULT __stdcall SendEvent(FWULONG nTimeStamp, FWULONG nEvent, FWULONG nSubCode, FWULONG nReserved);
+	virtual HRESULT __stdcall SendEvent(FWLONG nTimeStamp, FWULONG nEvent, FWLONG nSubCode, FWLONG nReserved);
 	virtual HRESULT __stdcall SendEventEx(struct ACTION_EVENT *pEvent);
-	virtual HRESULT __stdcall RaiseEvent(FWULONG nTimeStamp, FWULONG nEvent, FWULONG nSubCode, FWULONG nReserved);
+	virtual HRESULT __stdcall RaiseEvent(FWLONG nTimeStamp, FWULONG nEvent, FWLONG nSubCode, FWLONG nReserved);
 	virtual HRESULT __stdcall RaiseEventEx(struct ACTION_EVENT *pEvent);
 	virtual HRESULT __stdcall SetHandleEventHook(HANDLE_EVENT_HOOK_FUNC pfHook, FWULONG nParam, void *pParam);
 };

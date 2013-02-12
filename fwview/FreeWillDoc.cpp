@@ -404,7 +404,7 @@ void CFreeWillDoc::OnUpdateIndicatorPlaytime(CCmdUI *pCmdUI)
 		return;
 	}
 	
-	FWULONG nMsec;
+	FWLONG nMsec;
 	m_pRenderer->GetPlayTime(&nMsec);
 	CString str;
 	if (m_pRenderer->IsPaused() == S_OK)

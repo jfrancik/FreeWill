@@ -980,17 +980,17 @@ HRESULT CDX9Renderer::Play()
 {
 	m_nStartTime = m_nLastTime = ::GetTickCount();
 	m_bPause = m_bFrozen = false;
-	if (m_nStartTime == 0) m_nStartTime = 1;	// 0 reserved for Stopped state
+	m_bPlay = true;
 	return S_OK;
 }
 
 HRESULT CDX9Renderer::IsPlaying()
 {
-	if (m_nStartTime == 0) return S_FALSE;
+	if (!m_bPlay) return S_FALSE;
 
-	FWULONG nPlayTime;
+	FWLONG nPlayTime;
 	GetPlayTime(&nPlayTime);
-	if (m_nTotalTime && nPlayTime >= m_nTotalTime) return S_FALSE;
+	if (m_bTotal && nPlayTime >= m_nTotalTime) return S_FALSE;
 	return S_OK;
 }
 
@@ -1015,7 +1015,7 @@ HRESULT CDX9Renderer::IsPaused()
 HRESULT CDX9Renderer::Stop()
 {
 	m_nStartTime = m_nLastTime = 0;
-	m_bPause = m_bFrozen = false;
+	m_bPlay = m_bPause = m_bFrozen = false;
 	return S_OK;
 }
 
@@ -1027,49 +1027,57 @@ HRESULT CDX9Renderer::GetAccel(FWFLOAT *pA)
 
 HRESULT CDX9Renderer::PutAccel(FWFLOAT nA)
 {
-	FWULONG nPlayTime;
+	FWLONG nPlayTime;
 	GetPlayTime(&nPlayTime);
 
 	m_fAccel = nA;
 
-	if (m_nStartTime)
+	if (m_bPlay)
 		if (m_bPause || m_bFrozen)
-			m_nStartTime = m_nLastTime - (FWULONG)(nPlayTime / m_fAccel);
+			m_nStartTime = m_nLastTime - (FWLONG)(nPlayTime / m_fAccel);
 		else
-			m_nStartTime = ::GetTickCount() - (FWULONG)(nPlayTime / m_fAccel);
+			m_nStartTime = ::GetTickCount() - (FWLONG)(nPlayTime / m_fAccel);
 
 	return S_OK; 
 }
 
-HRESULT CDX9Renderer::GetTotalPlayingTime(FWULONG *pnMSec)
+HRESULT CDX9Renderer::GetTotalPlayingTime(FWLONG *pnMSec)
 {
 	if (pnMSec) *pnMSec = m_nTotalTime;
 	return S_OK;
 }
 
-HRESULT CDX9Renderer::PutTotalPlayingTime(FWULONG nMSec)
+HRESULT CDX9Renderer::PutTotalPlayingTime(FWLONG nMSec)
 {
 	m_nTotalTime = nMSec;
+	m_bTotal = true;
 	return S_OK;
 }
 
-HRESULT CDX9Renderer::GetPlayTime(FWULONG *pnMSec)
+HRESULT CDX9Renderer::ClearTotalPlayingTime()
 {
-	FWULONG nPlayTime = 0;
-	if (m_nStartTime != 0)
-		if (m_bPause || m_bFrozen)
-			nPlayTime = (FWULONG)((m_nLastTime - m_nStartTime) * m_fAccel);
-		else
-			nPlayTime = (FWULONG)((GetTickCount() - m_nStartTime) * m_fAccel);
+	m_nTotalTime = 0;
+	m_bTotal = false;
+	return S_OK;
+}
 
-	if (m_nTotalTime) 
+HRESULT CDX9Renderer::GetPlayTime(FWLONG *pnMSec)
+{
+	FWLONG nPlayTime = 0;
+	if (m_bPlay)
+		if (m_bPause || m_bFrozen)
+			nPlayTime = (FWLONG)((FWLONG)(m_nLastTime - m_nStartTime) * m_fAccel);
+		else
+			nPlayTime = (FWLONG)((FWLONG)(GetTickCount() - m_nStartTime) * m_fAccel);
+
+	if (m_bTotal) 
 		nPlayTime = min(nPlayTime, m_nTotalTime);
 
 	if (pnMSec) *pnMSec = nPlayTime;
 	return S_OK;
 }
 
-HRESULT CDX9Renderer::PutPlayTime(FWULONG nMSec)
+HRESULT CDX9Renderer::PutPlayTime(FWLONG nMSec)
 {
 	if (nMSec == 0)
 		m_nStartTime = m_nLastTime = 0;

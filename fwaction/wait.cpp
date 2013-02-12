@@ -37,7 +37,7 @@ HRESULT CActionWait::HandleEvent(struct ACTION_EVENT *pEvent)
 			ITransform *pT = NULL;
 			m_pBody->CreateCompatibleTransform(&pT);
 
-			FWULONG t = pEvent->nTimeStamp + 4000;
+			FWLONG t = pEvent->nTimeStamp + 4000;
 
 			FWFLOAT fA = (rand() & 1) ? DEG2RAD(80) : -DEG2RAD(80);
 
@@ -56,7 +56,7 @@ HRESULT CActionWait::HandleEvent(struct ACTION_EVENT *pEvent)
 			ITransform *pT = NULL;
 			m_pBody->CreateCompatibleTransform(&pT);
 
-			FWULONG t = pEvent->nTimeStamp+10000;
+			FWLONG t = pEvent->nTimeStamp+10000;
 
 			pT->FromRotationY(DEG2RAD(20));
 			FWCreateObjWeakPtr(FWDevice(), L"Action", L"Rotate", this, t + 0, 500, m_pBody, BODY_LEFT+BODY_ARM, pT);
@@ -116,7 +116,7 @@ HRESULT CActionWait::Create(IFWCreateContext *p)
 			m_pBody = NULL;
 
 		// when end of wait?
-		h = pEnum->QueryULONG(&m_nTimeStamp);
+		h = pEnum->QueryLONG(&m_nTimeStamp);
 		if (FAILED(h)) throw(h);
 	}
 	catch (HRESULT h)

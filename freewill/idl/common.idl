@@ -332,7 +332,8 @@ enum FW_PARAM
 { 
 	FW_PARAM_NONE,		///< no parameter or default parameter
 	FW_PARAM_EOL,		///< DEPRECATED --- End Of List, delimits the parameter list supplied by the client
-	FW_PARAM_ULONG,		///< integer (FWULONG) parameter
+	FW_PARAM_LONG,		///< integer (FWLONG) parameter
+	FW_PARAM_ULONG,		///< unsigned (FWULONG) parameter
 	FW_PARAM_FLOAT,		///< float parameter
 	FW_PARAM_STRING,	///< string parameter
 	FW_PARAM_VECTOR,	///< vector parameter
@@ -358,6 +359,7 @@ typedef struct
 	[switch_type(enum FW_PARAM), switch_is(m_type)]
 	union 
 	{
+		[case(FW_PARAM_LONG)] 		FWLONG m_LONG;
 		[case(FW_PARAM_ULONG)] 		FWULONG m_ULONG;
 		[case(FW_PARAM_FLOAT)]	 	FWFLOAT m_FLOAT;
 		[case(FW_PARAM_STRING)]		FWSTRING m_STRING;
@@ -873,6 +875,8 @@ interface IFWEnumParams : IFWUnknown
 
 	/// Generic Query function: queries for the FWPARAM value at current handle position and increments the handle pos if successful
 	HRESULT QueryParam([out] FWPARAM **pParam);
+	/// Queries for a FWLONG parameter at the current handle position and increments the handle pos if successful
+	HRESULT QueryLONG([in] [out] FWLONG *val);
 	/// Queries for a FWULONG parameter at the current handle position and increments the handle pos if successful
 	HRESULT QueryULONG([in] [out] FWULONG *val);
 	/// Queries for a FWFLOAT parameter at the current handle position and increments the handle pos if successful

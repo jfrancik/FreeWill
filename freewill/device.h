@@ -298,6 +298,7 @@ public:
 	virtual void __stdcall PutIndex(FWULONG nCur)	{ m_nCur = nCur; }
 
 	virtual HRESULT __stdcall QueryParam(/*[out]*/ FWPARAM **pParam);
+	virtual HRESULT __stdcall QueryLONG(/*[out]*/ FWLONG *val);
 	virtual HRESULT __stdcall QueryULONG(/*[out]*/ FWULONG *val);
 	virtual HRESULT __stdcall QueryFLOAT(/*[out]*/ FWFLOAT *val);
 	virtual HRESULT __stdcall QuerySTRING(/*[out]*/ FWSTRING *val);

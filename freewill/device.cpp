@@ -1014,6 +1014,23 @@ HRESULT __stdcall CFWEnumParams::QueryParam(/*[out]*/ FWPARAM **pParam)
 	return S_OK;
 }
 
+HRESULT __stdcall CFWEnumParams::QueryLONG(FWLONG *val)
+{
+	m_nTypeExpected = FW_PARAM_LONG;
+	ULONG myIndex = GetIndex();
+	FWPARAM *pParam = NULL;
+	HRESULT h = QueryParam(&pParam);
+	if (FAILED(h)) return h;
+	switch (pParam->m_type)
+	{
+		case FW_PARAM_LONG:		if (val) *val = pParam->m_LONG; break;
+		case FW_PARAM_ULONG:	if (val) *val = pParam->m_LONG; break;
+		case FW_PARAM_FLOAT:	if (val) *val = (FWULONG)(pParam->m_FLOAT); break;
+		default:				PutIndex(myIndex); return FW_E_PARAM_TYPE_MISMATCH;
+	}
+	return S_OK;
+}
+
 HRESULT __stdcall CFWEnumParams::QueryULONG(FWULONG *val)
 {
 	m_nTypeExpected = FW_PARAM_ULONG;
@@ -1023,6 +1040,7 @@ HRESULT __stdcall CFWEnumParams::QueryULONG(FWULONG *val)
 	if (FAILED(h)) return h;
 	switch (pParam->m_type)
 	{
+		case FW_PARAM_LONG:		if (val) *val = pParam->m_ULONG; break;
 		case FW_PARAM_ULONG:	if (val) *val = pParam->m_ULONG; break;
 		case FW_PARAM_FLOAT:	if (val) *val = (FWULONG)(pParam->m_FLOAT); break;
 		default:				PutIndex(myIndex); return FW_E_PARAM_TYPE_MISMATCH;
@@ -1039,6 +1057,7 @@ HRESULT __stdcall CFWEnumParams::QueryFLOAT(FWFLOAT *val)
 	if (FAILED(h)) return h;
 	switch (pParam->m_type)
 	{
+		case FW_PARAM_LONG:		if (val) *val = (FWFLOAT)pParam->m_LONG; break;
 		case FW_PARAM_ULONG:	if (val) *val = (FWFLOAT)pParam->m_ULONG; break;
 		case FW_PARAM_FLOAT:	if (val) *val = pParam->m_FLOAT; break;
 		default:				PutIndex(myIndex); return FW_E_PARAM_TYPE_MISMATCH;
@@ -1073,6 +1092,12 @@ HRESULT __stdcall CFWEnumParams::QueryVECTOR(FWVECTOR *val)
 	{
 		case FW_PARAM_VECTOR:	
 			if (val) *val = pParam->m_VECTOR; 
+			break;
+		case FW_PARAM_LONG:
+			x = (FWFLOAT)pParam->m_LONG;
+			h = QueryFLOAT(&y); if FAILED(h) { PutIndex(myIndex); return h; }
+			h = QueryFLOAT(&z); if FAILED(h) { PutIndex(myIndex); return h; }
+			if (val) { val->x = x; val->y = y; val->z = z; }
 			break;
 		case FW_PARAM_ULONG:
 			x = (FWFLOAT)pParam->m_ULONG;
@@ -1221,6 +1246,14 @@ HRESULT __stdcall CFWEnumParams::QueryPBONE(REFIID iid, FWPUNKNOWN *ppVal)
 				if (ppVal) *ppVal = p; else if (p) p->Release();
 				break;
 
+			case FW_PARAM_LONG:	
+				id = pParam->m_LONG;
+				if (!m_pRefBody) { PutIndex(myIndex); return FW_E_PARAM_NO_BODY_REF; }
+				h = m_pRefBody->GetBodyPart(id, iid, (IFWUnknown**)&p);
+				if ((id && !p) || FAILED(h)) { PutIndex(myIndex); return FW_E_PARAM_BAD_BONE; }
+				if (ppVal) *ppVal = p; else if (p) p->Release();
+				break;
+
 			case FW_PARAM_ULONG:	
 				id = pParam->m_ULONG;
 				if (!m_pRefBody) { PutIndex(myIndex); return FW_E_PARAM_NO_BODY_REF; }
@@ -1260,6 +1293,7 @@ HRESULT __stdcall CFWEnumParams::QueryPBONE(REFIID iid, FWPUNKNOWN *ppVal)
 				break;
 
 			case FW_PARAM_STRING:
+			case FW_PARAM_LONG:
 			case FW_PARAM_ULONG:
 			case FW_PARAM_FLOAT:
 				break;

@@ -9,7 +9,7 @@ struct CParam : public FWPARAM
 	CParam()								{ m_nIndex = 0; m_pName = NULL; m_type = FW_PARAM_NONE; }
 
 	CParam(FW_PARAM t, FWULONG nIndex = 0)	{ m_nIndex = nIndex; m_pName = NULL; m_type = t; memset(&m_VECTOR, 0, sizeof(m_VECTOR)); }
-	CParam(int n, FWULONG nIndex = 0)		{ m_nIndex = nIndex; m_pName = NULL; m_type = FW_PARAM_ULONG; m_ULONG = (FWULONG)n; }
+	CParam(int n, FWULONG nIndex = 0)		{ m_nIndex = nIndex; m_pName = NULL; m_type = FW_PARAM_LONG; m_LONG = (FWLONG)n; }
 	CParam(FWULONG n, FWULONG nIndex = 0)	{ m_nIndex = nIndex; m_pName = NULL; m_type = FW_PARAM_ULONG; m_ULONG = n; }
 	CParam(FWFLOAT f, FWULONG nIndex = 0)	{ m_nIndex = nIndex; m_pName = NULL; m_type = FW_PARAM_FLOAT; m_FLOAT = f; }
 	CParam(double f, FWULONG nIndex = 0)	{ m_nIndex = nIndex; m_pName = NULL; m_type = FW_PARAM_FLOAT; m_FLOAT = (FWFLOAT)f; }
@@ -20,7 +20,7 @@ struct CParam : public FWPARAM
 	CParam(PBODY p, FWULONG nIndex = 0)		{ m_nIndex = nIndex; m_pName = NULL; m_type = FW_PARAM_PBODY; m_PBODY = p; }
 
 	CParam(FW_PARAM t, FWSTRING pName)		{ m_nIndex = 0; m_pName = pName; m_type = t; memset(&m_VECTOR, 0, sizeof(m_VECTOR)); }
-	CParam(int n, FWSTRING pName)			{ m_nIndex = 0; m_pName = pName; m_type = FW_PARAM_ULONG; m_ULONG = (FWULONG)n; }
+	CParam(int n, FWSTRING pName)			{ m_nIndex = 0; m_pName = pName; m_type = FW_PARAM_LONG; m_LONG = (FWLONG)n; }
 	CParam(FWULONG n, FWSTRING pName)		{ m_nIndex = 0; m_pName = pName; m_type = FW_PARAM_ULONG; m_ULONG = n; }
 	CParam(FWFLOAT f, FWSTRING pName)		{ m_nIndex = 0; m_pName = pName; m_type = FW_PARAM_FLOAT; m_FLOAT = f; }
 	CParam(double f, FWSTRING pName)		{ m_nIndex = 0; m_pName = pName; m_type = FW_PARAM_FLOAT; m_FLOAT = (FWFLOAT)f; }

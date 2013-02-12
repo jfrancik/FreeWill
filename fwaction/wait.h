@@ -30,8 +30,8 @@ public:
 	virtual HRESULT __stdcall HandleEvent(struct ACTION_EVENT *pEvent);
 	virtual HRESULT __stdcall Create(IFWCreateContext*);
 
-	virtual HRESULT __stdcall GetCompleteTime(FWULONG *p)		{ if (p) *p = m_nTimeStamp; return S_OK; }
-	virtual FWULONG __stdcall CompleteTime()					{ return m_nTimeStamp; }
+	virtual HRESULT __stdcall GetCompleteTime(FWLONG *p)		{ if (p) *p = m_nTimeStamp; return S_OK; }
+	virtual FWLONG __stdcall CompleteTime()						{ return m_nTimeStamp; }
 
 	DECLARE_FACTORY_CLASS(ActionWait, Action) 
 	FW_RTTI(ActionWait)
@@ -39,7 +39,7 @@ public:
 protected:
 
 	IBody *m_pBody;
-	FWULONG m_nTimeStamp;
+	FWLONG m_nTimeStamp;
 
 public:
 	CActionWait();
