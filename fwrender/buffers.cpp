@@ -194,32 +194,64 @@ HRESULT _stdcall CMeshDX9VertexBuffer::GetFormat(/*[out]*/ FWULONG *nFormat, /*[
 	return S_OK;
 }
 
+// substantially changed 23/03/2013 --- old version below
 HRESULT _stdcall CMeshDX9VertexBuffer::GetCaps(enum MESH_VERTEXID nFlag, FWULONG nIndex, /*[out]*/ FWULONG *pOffset, /*[out,retval]*/ FWULONG *pSize)
 {
 	if (!m_pBuffer) return ERROR(FW_E_NOTREADY);
 
-	if (pOffset) *pOffset = m_description[nFlag].offset;
-	if (pSize) *pSize = m_description[nFlag].size;
-	if (nFlag == MESH_VERTEXID_BONEWEIGHT && nIndex < 0x80000000)
+	FWULONG nOffset = m_description[nFlag].offset;
+	FWULONG nSize = m_description[nFlag].size;
+
+	if (nSize && (nFlag == MESH_VERTEXID_BONEWEIGHT || nFlag == MESH_VERTEXID_BONEINDEX) && nIndex < 0x80000000)
 	{
-		if (pOffset) *pOffset += nIndex * sizeof(FWFLOAT);
-		if (pSize) *pSize = sizeof(FWFLOAT);
-		if (nIndex > m_nBones - 2) { if (pOffset) *pOffset = 0; if (pSize) *pSize = 0; }
+		FWULONG nBones = min(3, m_nBones);
+		if (nIndex >= nBones)
+			nOffset = nSize = 0;
+		else
+		{
+			nSize /= nBones;
+			nOffset += nIndex * nSize;
+		}
 	}
-	if (nFlag == MESH_VERTEXID_BONEINDEX && nIndex < 0x80000000)
+	else
+	if (nSize && nFlag == MESH_VERTEXID_TEXTURE && nIndex < 0x80000000)
 	{
-		if (pOffset) *pOffset += nIndex;
-		if (pSize) *pSize = 1;
-		if (nIndex > 3) { if (pOffset) *pOffset = 0; if (pSize) *pSize = 0; }
+		nOffset += nIndex * 2 * sizeof(FWFLOAT);
+		nSize = 2 * sizeof(FWFLOAT);
+		if (nIndex >= m_nTextures) { nOffset = 0; nSize = 0; }
 	}
-	if (nFlag == MESH_VERTEXID_TEXTURE && nIndex < 0x80000000 && *pSize)
-	{
-		if (pOffset) *pOffset += nIndex * 2 * sizeof(FWFLOAT);
-		if (pSize) *pSize = 2 * sizeof(FWFLOAT);
-		if (nIndex >= m_nTextures) { if (pOffset) *pOffset = 0; if (pSize) *pSize = 0; }
-	}
+
+	if (pOffset) *pOffset = nOffset;
+	if (pSize) *pSize = nSize;
 	return S_OK;
 }
+
+//HRESULT _stdcall CMeshDX9VertexBuffer::GetCaps(enum MESH_VERTEXID nFlag, FWULONG nIndex, /*[out]*/ FWULONG *pOffset, /*[out,retval]*/ FWULONG *pSize)
+//{
+//	if (!m_pBuffer) return ERROR(FW_E_NOTREADY);
+//
+//	if (pOffset) *pOffset = m_description[nFlag].offset;
+//	if (pSize) *pSize = m_description[nFlag].size;
+//	if (nFlag == MESH_VERTEXID_BONEWEIGHT && nIndex < 0x80000000)
+//	{
+//		if (pOffset) *pOffset += nIndex * sizeof(FWFLOAT);
+//		if (pSize) *pSize = sizeof(FWFLOAT);
+//		if (nIndex > m_nBones - 2) { if (pOffset) *pOffset = 0; if (pSize) *pSize = 0; }
+//	}
+//	if (nFlag == MESH_VERTEXID_BONEINDEX && nIndex < 0x80000000)
+//	{
+//		if (pOffset) *pOffset += nIndex;
+//		if (pSize) *pSize = 1;
+//		if (nIndex > 3) { if (pOffset) *pOffset = 0; if (pSize) *pSize = 0; }
+//	}
+//	if (nFlag == MESH_VERTEXID_TEXTURE && nIndex < 0x80000000 && *pSize)
+//	{
+//		if (pOffset) *pOffset += nIndex * 2 * sizeof(FWFLOAT);
+//		if (pSize) *pSize = 2 * sizeof(FWFLOAT);
+//		if (nIndex >= m_nTextures) { if (pOffset) *pOffset = 0; if (pSize) *pSize = 0; }
+//	}
+//	return S_OK;
+//}
 
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////

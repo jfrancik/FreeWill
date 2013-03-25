@@ -26,31 +26,40 @@ CFWDevice::~CFWDevice()
 {
 	c_pSingleInstance = NULL;
 	m_nRef = 0x7fffffff;	// factories contain weak pointers to this and will try to release them!
-	for (vector<_NOUN*>::iterator i = m_vecNouns.begin(); i != m_vecNouns.end(); i++)
+
+	TRACE(L"Deleting object factories:\n");
+	for each (_NOUN *pNoun in m_vecNouns)
 	{
-		_NOUN *p = *i;
-		if (p->theNoun) free(p->theNoun);
-		if (p->theGeneric) free(p->theGeneric);
-		for (vector<_VERB*>::iterator i = p->vecVerbs.begin(); i != p->vecVerbs.end(); i++)
+		std::wstring strNoun = pNoun->theNoun;
+		if (pNoun->theNoun)		
+			free(pNoun->theNoun);
+		if (pNoun->theGeneric)	
+			free(pNoun->theGeneric);
+		for each (_VERB *pVerb in pNoun->vecVerbs)
 		{
-			_VERB *p = *i;
-			if (p->theVerb) free(p->theVerb);
-			for (vector<_CLASS*>::iterator i = p->vecClasses.begin(); i != p->vecClasses.end(); i++)
+			std::wstring strVerb = pVerb->theVerb;
+			if (pVerb->theVerb)
+				free(pVerb->theVerb);
+			for each (_CLASS *pClass in pVerb->vecClasses)
 			{
-				_CLASS *p = *i;
-				if (p->theClass) free(p->theClass);
-				if (p->pFactory) p->pFactory->Release();
-				delete p;
+				std::wstring strClass = pClass->theClass;
+				if (pClass->theClass) 
+					free(pClass->theClass);
+				if (pClass->pFactory)
+				{
+					TRACE(L"Deleting factory: %ws: %ws (%ws)\n", strNoun.c_str(), strVerb.c_str(), strClass.c_str());
+					pClass->pFactory->Release();
+				}
+				delete pClass;
 			}
-			//for (vector<_ARG*>::iterator i = p->vecArgs.begin(); i != p->vecArgs.end(); i++)
+			//for each (_ARG *pArg in pVerb->vecArgs)
 			//{
-			//	_ARG *p = *i;
 			//	if (p->theArg) free(p->theArg);
 			//	delete p;
 			//}
-			delete p;
+			delete pVerb;
 		}
-		delete p;
+		delete pNoun;
 	}
 
 	TRACE(L"Destructing FreeWill+ Device. Count of registered objects: %d\n", nRegObjects);
@@ -65,6 +74,7 @@ CFWDevice::~CFWDevice()
 		if (p->pMessage) free(p->pMessage);
 		delete p;
 	}
+	TRACE(L"FreeWill Device deleted and unloaded\n");
 }
 
 ////////////////////////////////////////////////////////////////////

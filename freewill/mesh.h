@@ -47,9 +47,9 @@ public:
 	virtual HRESULT _stdcall GetFaceItemSize(FWULONG *p)		{ *p = m_nFaceItemSize; return S_OK; }
 
 	// caps
-	virtual HRESULT _stdcall GetVertexFormat(/*[out]*/ FWULONG *nFormat, /*[out]*/ FWULONG *nBones, /*[out]*/ FWULONG *nTextures, /*[out]*/ FWULONG *nVertexSize);
+	virtual HRESULT _stdcall GetVertexFormat(/*[out]*/ FWULONG *pnFormat, /*[out]*/ FWULONG *pnBones, /*[out]*/ FWULONG *pnTextures, /*[out]*/ FWULONG *pnVertexSize);
 	virtual HRESULT _stdcall GetVertexCaps(enum MESH_VERTEXID nFlag, FWULONG nIndex, /*[out]*/ FWULONG *pOffset, /*[out,retval]*/ FWULONG *pSize);
-	virtual HRESULT _stdcall GetFaceFormat(/*[out]*/ FWULONG *nSizeOfVertexIndex);
+	virtual HRESULT _stdcall GetFaceFormat(/*[out]*/ FWULONG *pnSizeOfVertexIndex);
 	virtual HRESULT _stdcall SupportsVertexBlending();
 	virtual HRESULT _stdcall SupportsIndexedVertexBlending();
 	virtual HRESULT _stdcall SupportsSubmeshedVertexBlending();
@@ -68,21 +68,26 @@ public:
 	// operations
 	virtual HRESULT _stdcall SetVertexXYZ(FWULONG iVertex, FWFLOAT x, FWFLOAT y, FWFLOAT z);
 	virtual HRESULT _stdcall SetVertexXYZVector(FWULONG iVertex, FWVECTOR v);
+	virtual HRESULT _stdcall SetNormal(FWULONG iVertex, FWFLOAT x, FWFLOAT y, FWFLOAT z);
+	virtual HRESULT _stdcall SetNormalVector(FWULONG iVertex, FWVECTOR v);
 	virtual HRESULT _stdcall SetVertexPointSize(FWULONG iVertex, FWULONG);
 	virtual HRESULT _stdcall SetVertexDiffuse(FWULONG iVertex, FWULONG);
 	virtual HRESULT _stdcall SetVertexSpecular(FWULONG iVertex, FWULONG);
 	virtual HRESULT _stdcall SetVertexTexture(FWULONG iVertex, FWULONG iTexture, FWULONG);
 	virtual HRESULT _stdcall SetVertexTextureUV(FWULONG iVertex, FWULONG iTexture, FWFLOAT u, FWFLOAT v);
+	virtual HRESULT _stdcall SetBoneName(FWULONG iVertex, FWULONG iBone, FWSTRING strBoneName);
+	virtual HRESULT _stdcall SetBoneWeight(FWULONG iVertex, FWULONG iBone, FWFLOAT fBoneWeight);
+	virtual HRESULT _stdcall SetBoneIndex(FWULONG iVertex, FWULONG iBone, BYTE iBoneIndex);
 	virtual HRESULT _stdcall SetFace(FWULONG iFace, FWULONG iVertexA, FWULONG iVertexB, FWULONG iVertexC);
 
 	virtual HRESULT _stdcall SetMaterial(IMaterial *pMaterial);
 	virtual HRESULT _stdcall GetMaterial(IMaterial **ppMaterial);
 
-	virtual HRESULT _stdcall SupportNormal(FWULONG nLimit);
+	virtual HRESULT _stdcall InitAdvNormalSupport(FWULONG nLimit);
 	virtual HRESULT _stdcall AddNormal(/*[in, out]*/ FWULONG *index, FWFLOAT x, FWFLOAT y, FWFLOAT z);
 	virtual HRESULT _stdcall AddNormalVector(/*[in, out]*/ FWULONG *index, FWVECTOR v);
 	
-	virtual HRESULT _stdcall SupportBlendWeight(FWFLOAT fMinWeight, FWULONG nMinVertexNum);
+	virtual HRESULT _stdcall InitAdvVertexBlending(FWFLOAT fMinWeight, FWULONG nMinVertexNum);
 	virtual HRESULT _stdcall AddBlendWeight(FWULONG iVertex, FWFLOAT fWeight, LPOLESTR pBoneName);
 
 	// Reproduction - disabled (stuff inherited from IKineObj3D)
@@ -110,20 +115,33 @@ protected:
 	IMeshDictionary *m_pDictionary;
 	IMaterial *m_pMaterial;
 
-	// byte buffers
-	BYTE *m_pVertexBytes;
-	FWULONG m_nVertexFirst;
-	FWULONG m_nVertexNum;
-	FWULONG m_nVertexMaxSize;
+	// General Buffer Data
+	FWULONG m_offsetXYZ, m_sizeXYZ;						// vertex buffer caps: XYZ
+	FWULONG m_offsetNormal, m_sizeNormal;				// vertex buffer caps: Normal
+	FWULONG m_offsetPointSize, m_sizePointSize;			// vertex buffer caps: Point Size
+	FWULONG m_offsetDiffuse, m_sizeDiffuse;				// vertex buffer caps: Diffuse
+	FWULONG m_offsetSpecular, m_sizeSpecular;			// vertex buffer caps: Specular
+	FWULONG m_offsetTexture[16], m_sizeTexture;			// vertex buffer caps: Texture
+	FWULONG m_offsetBoneWeight[3], m_sizeBoneWeight;	// vertex buffer caps: Bone Weight (currently limited to 3 in DX - implementation specific!)
+	FWULONG m_offsetBoneIndex[3], m_sizeBoneIndex;		// vertex buffer caps: Bone Index  (currently limited to 3 in DX - implementation specific!)
+
+	FWULONG m_nVertexFormat;					// vertex format
+	FWULONG m_nBonesPerVertex;					// number of bones available
+	FWULONG m_nTexturesPerVertex;				// number of textures available
+	bool m_bFace32;								// face buffer format: 32-bit index flag
+
+	// byte buffers - params made available in Open()
+	BYTE *m_pVertexBytes;			// bytes
+	FWULONG m_nVertexFirst;			// first byte offset
+	FWULONG m_nVertexNum;			// vertex number (initialised to 0, then updated)
+	FWULONG m_nVertexMaxSize;		// maximal number of vertices (available size of the buffer)
 	FWULONG m_nVertexItemSize;		// size of vertex
-
-	BYTE *m_pFaceBytes;
-	FWULONG m_nFaceFirst;
-	FWULONG m_nFaceNum;
-	FWULONG m_nFaceMaxSize;
-	FWULONG m_nFaceItemSize;		// size of face
-
-	bool m_bHasBytes;
+	
+	BYTE *m_pFaceBytes;				// bytes
+	FWULONG m_nFaceFirst;			// first byte offset
+	FWULONG m_nFaceNum;				// face number (initialised to 0, then updated)
+	FWULONG m_nFaceMaxSize;			// maximal number of faces (available size of the buffer)
+	FWULONG m_nFaceItemSize;		// size of a face
 
 	// visibility
 	BOOL m_bOn;
@@ -131,26 +149,14 @@ protected:
 	// mesh transform
 	ITransform *m_pTransform;
 
-	// General Buffer Data
-	FWULONG m_offsetXYZ, m_sizeXYZ;				// vertex buffer caps: XYZ
-	FWULONG m_offsetPointSize, m_sizePointSize;	// vertex buffer caps: Point Size
-	FWULONG m_offsetDiffuse, m_sizeDiffuse;		// vertex buffer caps: Diffuse
-	FWULONG m_offsetSpecular, m_sizeSpecular;		// vertex buffer caps: Specular
-	FWULONG m_offsetTexture[16], m_sizeTexture[16];// vertex buffer caps: Texture
-	bool m_bFace32;								// face buffer format: 32-bit index flag
-
 	// Submesh Data
 	FWULONG m_nSubmeshNum;		// total number of submeshes
 	FWULONG *m_pSubmeshLen;		// start face indices for submeshes (dim: m_nSubmeshNum)
-	FWULONG *m_pSubmeshBones;		// bone indices for submeshes (dim: m_nSubmeshNum * m_nBoneNum)
-
-	// Number of Bones (used only by Submesh Support functions)
-	FWULONG m_nBoneNum;			// number of bones
+	FWULONG *m_pSubmeshBones;		// bone indices for submeshes (dim: m_nSubmeshNum * m_nBonesPerVertex)
 
 	// AddNormal helper data
 	FWULONG *m_pCtrl;				// control buffer; contains index of the next synonim; 
 	FWULONG m_nCtrlSize;			// size of m_pCtrl buffer
-	FWULONG m_nNormalOffset;		// offset to normal position in a vertex struct. Normals to be written as FWFLOAT[3]
 
 	// AddBlendWeight data
 	bool m_bBWOn;				// control flag (blend weight support is on)

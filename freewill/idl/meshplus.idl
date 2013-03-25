@@ -64,53 +64,70 @@ import "matplus.idl";
 /// Call IMesh::Open before use.
 /// \sa IMesh::SetVertexXYZ and following functions.
 ///
-/// \subsection MeshNor Normal Vector Support
-/// Normal Vector Support (NVS) allows setting the normal vectors for vertices; an important facility
-/// is that two or more normals per vector are allowed. This usually happens when a vertex 
-/// is shared by two or more neighbouring smoothing areas, and forms a part of a 3d edge.
-/// It is essential to notice that a completely separate copy of a vertex (a clone) is
-/// created in the vertex buffer for each separate value of the normal vector. Therefore
-/// the vertex index may be changed during the IMesh::AddNormal call, and consequently
-/// it has been defined as an [in, out] param. When storing vertex indices 
-/// as triangle definitions in the face buffer it is critical to call AddNormal first 
-/// so that to use the appropriate clone, i.e. with the normal value used in the given
-/// face and the smoothing area. Notice, that several calls for the same vertex/normal pair
-/// will not lead to any redundant data.
-/// \remark
-/// - To start using the NVS functionality, first call IMesh::SupportNormal
-/// - Then use IMesh::AddNormal to store normals.
-/// - NVS may allocate large temporary data structures (created by SupportBlendWeight, released by Close)
-/// - As use of NVS clones some vertices, it will lead to increasing the length of the
-/// used vertex buffer (IMesh::GetVertexNum), and occasionally may cause the 
-/// \ref FW_E_MEMOVERRUN error.
+/// \subsection MeshNor Normal Vectors
+/// Normal Vectors can be easily setup using IMesh::SetNormal. FW+ native vertex formats
+/// allow for just one normal to be allocated for each vertex. Use \ref AdvMeshNor
+/// if multiple normals are necessary, for example importing data from formats
+/// in which normals are defined per face rather than per vertex, but never combine
+/// IMesh::SetNormal with the advanced method.
 ///
-/// \subsection MeshVer Vertex Blending Support
-/// Vertex Blending Support (VBS) enables use of a single mesh spread on a number of bones.
-/// Vertices of such mesh may be controlled by two or more bones (blended control), 
-/// with a weight assigned to each bone. You simply pass a set of bone weight/bone name pairs
-/// for each vertex, and VBS will translate the bone names to unique indices/ids using
-/// an IMeshDictionary object provided. Use the same dictionary instance for several meshes
-/// to keep consistency in bone ids. 
+/// \subsection AdvMeshNor Advanced Normal Vector Support
+/// Advanced Normal Vector Support (ANVS) allows for using several different values of the normal
+/// vector for a single vertex. Internally, this method applies a special algorithm to create a vertex clone
+/// for each additional value of normal. This may be useful when a vertex is shared between two or more 
+/// neighbouring smoothing areas, and forms a part of a 3d edge, particularly when importing data 
+/// from formats in which normals are defined per face rather than per vertex.
 /// \remark
-/// - To start using the VBS functionality, first call IMesh::SupportBlendWeight
-/// - Then use IMesh::AddBlendWeight.
-/// - VBS may allocate large temporary data structures (created by SupportBlendWeight, released by Close)
-/// - As use of VBS occasionally causes new vertices to be created, it may lead to the \ref FW_E_MEMOVERRUN error.
-/// - see also the \ref MeshSub section below.
+/// - Before use, first call IMesh::InitAdvNormalSupport to prepare internal data structures.
+/// - Then use IMesh::AddNormal (not IMesh::SetNormal!) to add normals for vertices
+/// - Use IMesh::SetNormal if you only need a single normal for each vertex - but never combine the two methods
+///   (never call SetNormal after InitAdvNormalSupport).
+/// - IMPRTANT: Any call to IMesh::AddNormal may change the vertex indices (these are in/out params);
+///   always use the output index value in the consecutive call to IMesh::SetFace.
+/// - ANVS may allocate large temporary data structures (created by InitAdvNormalSupport, released by Close),
+///   increase the number of vertices in the vertex buffer (IMesh::GetVertexNum), and occasionally cause the \ref FW_E_MEMOVERRUN error.
+///   It can also slightly affect execution times.
+/// - several calls for the same vertex/normal pair will not lead to any redundant data.
 ///
-/// \subsection MeshSub Submeshes
-/// Some hardware platforms do not support bone indices; similar situation occurs when 
-/// \ref MESH_VERTEX_BONEWEIGHT but not \ref MESH_VERTEX_BONEINDEX buffer creation flags are applied.
-/// Subsequently only a limited set of globally defined bones may be used per mesh.
-/// If necessary, the VBS engine (see the \ref MeshVer above) will divide and sort vertices into several submeshes,
-/// so that not to exceed the allowed number of bones in each submesh. This facility is implemented
-/// in IMesh::Close and may significantly increase the execution time of this function.
-/// Creation of submeshes significantly affects the way in which the mesh should be rendered (see below).
+/// \subsection MeshVer Simple Vertex Blending
+/// FreeWill+ meshes support Vertex Blending. Use IMesh::SetBoneName to select the bone and then 
+/// IMesh::SetBoneWeight to set the bone weight. The bone names are internally converted to bone indices,
+/// which address locations in the bone system defined at the level of ISceneObject object.
+/// New index values are automatically allocated for each new bone reported in a SetBoneName call.
+/// This simple principle is however dramatically affected for more complex kinematic systems,
+/// unless your platform supports Indexed Vertex Blending. Check the remarks below or consider
+/// using \ref AdvMeshVer instead.
+/// \remarks
+/// - Never use these functions in combination with the advanced approach (\ref AdvMeshVer).
+/// - For platforms that support Indexed Vertex Blending, indices are allocated on a per vertex, per bone basis.
+/// - For platforms that do not support Indexed Vertex Blending, indices are only allocated on per bone basis.
+///   Any setting will be considered global for all vertices in the mesh, therefore 
+///   number of various indices must not exceed the number of bones, and all bone weights in all vertices
+///   will refer to the same bone if they are at the same slot within their vertices.
+/// - To overcome the limitations for the systems which do not support Indexed Vertex Blending use \ref AdvMeshVer.
+/// - IMesh::SetBoneIndex may be used to directly set the bone index (not recommended)
+///
+/// \subsection AdvMeshVer Advanced Vertex Blending Support and Submeshes
+/// Advanced Vertex Blending Support (AVBS) enables use of a single mesh spread on a number of bones
+/// regardless whether the platform supports Indexed Vertex Blending or not, without limitations normally imposed.
+/// In case of systems not supporting Indexed Vertex Blending it is achieved by automatically dividing the mesh
+/// into a set of smaller "submeshes", each of them spread on a subset of the global bone system.
+/// Considerably more powerful and in the same time easier to use than \ref MeshVer
+/// it may also use much more memory and execution time when creating the mesh. The efficiency of rendering will be
+/// just marginally affected.
+/// \remark
+/// - Never use in combination with \ref MeshVer!
+/// - Before use, first call IMesh::InitAdvVertexBlending
+/// - Then use IMesh::AddBlendWeight and simply supply the name of the bone and its corresponding blending weight.
+/// - AVBS may allocate large temporary data structures (created by InitAdvVertexBlending, released by Close),
+///   and occasionally cause the \ref FW_E_MEMOVERRUN error. It may also significantly affect execution times.
+/// - If solving the bone indices imposes sorting the vertices and allocating them to submeshes,
+///   it will very significantly increase the execution time of the IMesh::Close function.
 ///
 /// \subsection MeshRndr Remarks on Mesh Rendering
 /// The Vertex and Face Buffer, initialised with data and finalised with IMesh::Close call
 /// are the general basis for rendering. However the use of Vertex Blending Support with Submeshes
-/// (see IMesh::MeshSub) may cause that multiple, relatively small submeshes shuld be rendered rather
+/// (see \ref AdvMeshVer) may cause that multiple, relatively small submeshes shuld be rendered rather
 /// than the whole mesh. All the submeshes share the same Vertex/Face Buffers. First call
 /// IMesh::SupportsSubmeshedVertexBlending to check if this is the case; if positive, call
 /// IMesh::GetSubmeshInfo to collect details on submesh division.
@@ -251,7 +268,7 @@ interface IMeshBuffer : IFWUnknown
 {
 	/// @name Attributes
 	
-	/// Size of a single vertex position (in bytes)
+	/// Size of a single item position (in bytes)
 	HRESULT GetItemSize([out, retval] FWULONG*);
 	/// Size of the buffer, i.e. number of items
 	HRESULT GetBufSize([out, retval] FWULONG*);		
@@ -344,9 +361,9 @@ interface IMeshVertexBuffer : IMeshBuffer
 	HRESULT Create([in] FWULONG nSize, [in] FWULONG nFormat, [in] FWULONG nBones, [in] FWULONG nTextures);
 
 	/// Returns the actual format, number of bones and number of textures allocated by \ref Create \ref GetFormat "(details)".
-	/// \retval nFormat The actual format of the buffer, a combination of the \ref MESH_VERTEX flags
-	/// \retval nBones The actual number of bones  \retval nTextures The actual number of textures
-	HRESULT GetFormat([out] FWULONG *nFormat, [out] FWULONG *nBones, [out] FWULONG *nTextures);
+	/// \retval pnFormat The actual format of the buffer, a combination of the \ref MESH_VERTEX flags
+	/// \retval pnBones The actual number of bones  \retval pnTextures The actual number of textures
+	HRESULT GetFormat([out] FWULONG *pnFormat, [out] FWULONG *pnBones, [out] FWULONG *pnTextures);
 	
 	/// Returns the location information for the given format tag in the vertex data structure \ref GetCaps "(details)".
 	/// \param nFlag The required vertex structure item (see \ref MESH_VERTEXID)
@@ -385,7 +402,7 @@ interface IMeshFaceBuffer : IMeshBuffer
 	HRESULT Create([in] FWULONG nSize);
 
 	/// Retrieves the actual format (size) of the buffer, which is the number of bits per vertex index (usually 16 or 32)
-	HRESULT GetFormat([out] FWULONG *nBitsPerIndex);
+	HRESULT GetFormat([out] FWULONG *pnBitsPerIndex);
 };
 
 
@@ -401,7 +418,7 @@ interface IMeshFaceBuffer : IMeshBuffer
 /// Call \ref GetIndex to get a unique index for a given string. First, the dictionary 
 /// tries to substitute the given string with its synonym, if any has been set.
 /// 
-/// \sa IMesh::SupportBlendWeight
+/// \sa IMesh::InitAdvVertexBlending
 /// \sa Implementation in FreeWillPlus::MeshDictionary
 //////////////////////////////////////////////////////////////////////////////////////////
 [
@@ -468,18 +485,18 @@ interface IMesh : IFWUnknown
 	/// \remark The actual buffer format may be different than requested when created the buffers.
 
 	/// Currently used vertex format, calls IMeshVertexBuffer::GetFormat
-	HRESULT GetVertexFormat([out] FWULONG *nFormat, [out] FWULONG *nBones, [out] FWULONG *nTextures, [out] FWULONG *nVertexSize);
+	HRESULT GetVertexFormat([out] FWULONG *pnFormat, [out] FWULONG *pnBones, [out] FWULONG *pnTextures, [out] FWULONG *pnVertexSize);
 	/// Currently used vertex layout, calls IMeshVertexBuffer::GetCaps
 	HRESULT GetVertexCaps([in] enum MESH_VERTEXID nFlag, [in] FWULONG nIndex, [out] FWULONG *pOffset, [out,retval] FWULONG *pSize);
 	/// Currently used face format, 2 for 16-bit vertex index format, 4 for 32-bit vertex indexs format
-	HRESULT GetFaceFormat([out] FWULONG *nSizeOfVertexIndex);
+	HRESULT GetFaceFormat([out] FWULONG *pnSizeOfVertexIndex);
 	/// returns S_OK if the vertex buffer supports \ref MESH_VERTEX_BONEWEIGHT flag (bone weights); S_FALSE otherwise; see \ref MeshVer
 	HRESULT SupportsVertexBlending();
 	/// returns S_OK if the vertex buffer supports \ref MESH_VERTEX_BONEWEIGHT 
 	/// and \ref MESH_VERTEX_BONEINDEX flags (bone weights & indices); S_FALSE otherwise; see \ref MeshVer
 	HRESULT SupportsIndexedVertexBlending();
 	/// returns S_OK if the vertex buffer supports the \ref MESH_VERTEX_BONEWEIGHT flag
-	/// but not the \ref MESH_VERTEX_BONEINDEX flags (bone weights & indices); S_FALSE otherwise; see \ref MeshSub
+	/// but not the \ref MESH_VERTEX_BONEINDEX flags (bone weights & indices); S_FALSE otherwise; see \ref AdvMeshVer
 	HRESULT SupportsSubmeshedVertexBlending();
 
 
@@ -494,12 +511,12 @@ interface IMesh : IFWUnknown
 	/// \return \ref FW_E_NOTREADY if buffers not initialized
 
 	HRESULT GetVertexFirst([out, retval] FWULONG*);		///< Index of the first allocated vertex position
-	HRESULT GetVertexNum([out, retval] FWULONG*);			///< Size of the allocated vertex range
+	HRESULT GetVertexNum([out, retval] FWULONG*);		///< Size of the allocated vertex range
 	HRESULT GetVertexItemSize([out, retval] FWULONG*);	///< Size of a single Vertex item
 
-	HRESULT GetFaceFirst([out, retval] FWULONG*);			///< Index of the first allocated face position
+	HRESULT GetFaceFirst([out, retval] FWULONG*);		///< Index of the first allocated face position
 	HRESULT GetFaceNum([out, retval] FWULONG*);			///< Size of the allocated face range
-	HRESULT GetFaceItemSize([out, retval] FWULONG*);		///< Size of a single Face item
+	HRESULT GetFaceItemSize([out, retval] FWULONG*);	///< Size of a single Face item
 
 	/// @name Mesh Transformation
 	/// Use Mesh Transform to initially, automatically transform all the vertex coordinates passed
@@ -530,7 +547,7 @@ interface IMesh : IFWUnknown
 	/// \return \ref FW_E_NOTREADY if buffers not initialized
 	HRESULT Open([out] BYTE **pVertexBytes, [out] BYTE **pFaceBytes);
 	/// Should be called once after \ref Open call to release any memory allocated and save the buffer contents \ref Close "(details)".
-	/// This function also terminates the \ref MeshVer if \ref SupportBlendWeight had been called.
+	/// This function also terminates the \ref AdvMeshVer if \ref InitAdvVertexBlending had been called.
 	/// \return \ref FW_E_MEMOVERRUN or E_NOTIMPL if final blending support unsuccessfull.
 	HRESULT Close();
 
@@ -544,6 +561,10 @@ interface IMesh : IFWUnknown
 	HRESULT SetVertexXYZ([in] FWULONG iVertex, [in] FWFLOAT x, [in] FWFLOAT y, [in] FWFLOAT z);
 	/// The same as \ref SetVertexXYZ; FWVECTOR param used in place of x, y, z
 	HRESULT SetVertexXYZVector([in] FWULONG iVertex, [in] FWVECTOR v);
+	/// Sets the Normal Vector data for the iVertex'th vertex; return values - see above; don't combine with \ref AdvMeshNor 
+	HRESULT SetNormal([in] FWULONG iVertex, [in] FWFLOAT x, [in] FWFLOAT y, [in] FWFLOAT z);
+	/// The same as \ref SetNormal; FWVECTOR param used in place of x, y, z
+	HRESULT SetNormalVector([in] FWULONG iVertex, [in] FWVECTOR v);
 	/// Sets the PointSize data for the iVertex'th vertex; return values - see above
 	HRESULT SetVertexPointSize([in] FWULONG iVertex, [in] FWULONG);
 	/// Sets the Diffuse Colour data for the iVertex'th vertex; return values - see above
@@ -552,7 +573,14 @@ interface IMesh : IFWUnknown
 	HRESULT SetVertexSpecular([in] FWULONG iVertex, [in] FWULONG);
 	/// Sets the Texture data (index & value) for the iVertex'th vertex; return values - see above
 	HRESULT SetVertexTexture([in] FWULONG iVertex, [in] FWULONG iTexture, [in] FWULONG);
+	/// Sets the Texture data (index & value) for the iVertex'th vertex; return values - see above
 	HRESULT SetVertexTextureUV([in] FWULONG iVertex, [in] FWULONG iTexture, [in] FWFLOAT u, [in] FWFLOAT v);
+	/// Sets the bone for the iBone'th slot in iVertex'th vertex; use carefully unless Indexed Vertex Blending supported - see \ref MeshVer 
+	HRESULT SetBoneName([in] FWULONG iVertex, [in] FWULONG iBone, [in] FWSTRING strBoneName);
+	/// Sets the bone weight for the iBone'th slot in iVertex'th vertex; use carefully unless Indexed Vertex Blending supported - see \ref MeshVer 
+	HRESULT SetBoneWeight([in] FWULONG iVertex, [in] FWULONG iBone, [in] FWFLOAT fBoneWeight);
+	/// Sets the bone index for the iBone'th slot in iVertex'th vertex; use carefully unless Indexed Vertex Blending supported - see \ref MeshVer 
+	HRESULT SetBoneIndex([in] FWULONG iVertex, [in] FWULONG iBone, [in] BYTE iBoneIndex);
 	/// Sets the data for the iFace'th face; return values - see above
 	HRESULT SetFace([in] FWULONG iFace, [in] FWULONG iVertexA, [in] FWULONG iVertexB, [in] FWULONG iVertexC);
 
@@ -561,14 +589,14 @@ interface IMesh : IFWUnknown
 	// Gets the material
 	HRESULT GetMaterial([out, retval] IMaterial **ppMaterial);
 
-	/// @name Support for Normal Vectors
-	/// \sa \ref MeshNor
+	/// @name Advanced Support for Normal Vectors
+	/// \sa \ref AdvMeshNor
 
-	/// Initializes the Normal Vector Support \ref SupportNormal "(details)".
-	/// \sa \ref MeshNor
+	/// Initializes the Advanced Normal Vector Support \ref InitAdvNormalSupport "(details)".
+	/// \sa \ref AdvMeshNor
 	/// \param nLimit determines the size of the Normal Control Structure (see below); 0 for the maximum size
 	/// \remark Creates the Normal Control Structure that is used by \ref AddNormal
-	/// to locate all the clones of a given vertex and to determine if cloning is needed (see \ref MeshNor).
+	/// to locate all the clones of a given vertex and to determine if cloning is needed (see \ref AdvMeshNor).
 	/// You can control the size of this structure with nLimit parameter; it shoould not be less
 	/// than the actual number of vertices, \ref GetVertexNum. Set nParam = 0 to cover the maximum length
 	/// of the buffer or alternatively you can pass a value corresponding to the expected number of vertex clones.
@@ -578,13 +606,13 @@ interface IMesh : IFWUnknown
 	/// - FW_E_INVALIDARG if nLimit to small (less then \ref GetVertexNum).
 	/// - \ref FW_E_MEMOVERRUN if nLimit to large (overruns the size of the vertex buffer)
 	/// - FW_E_OUTOFMEMORY if the Normal Control Structure cannot be created.
-	HRESULT SupportNormal([in] FWULONG nLimit);
+	HRESULT InitAdvNormalSupport([in] FWULONG nLimit);
 	/// Adds the normal value for a given vertex \ref AddNormal "(details)".
-	/// \sa \ref MeshNor
+	/// \sa \ref AdvMeshNor
 	/// \param index The index of the vertex for which a normal is added
 	/// \param x, y, z The normal coordinates
 	/// \retval index The index of the actual vertex assigned to the given normal (see below)
-	/// \return \ref FW_E_NOTREADY if buffers not initialized or \ref Open not called or \ref SupportNormal not called.
+	/// \return \ref FW_E_NOTREADY if buffers not initialized or \ref Open not called or \ref InitAdvNormalSupport not called.
 	/// \return \ref FW_E_MEMOVERRUN if a cloned vertex overrun the vertex buffer.
 	/// \remark 
 	/// - If the index'th vertex is not assigned to any normal, [x,y,z] is set as its normal; index remains unchanged.
@@ -598,10 +626,10 @@ interface IMesh : IFWUnknown
 	
 	
 	/// @name Support for Weight Blending
-	/// \sa \ref MeshVer
+	/// \sa \ref AdvMeshVer
 	
 	/// Initializes the Vertex Blending Support.
-	/// \sa \ref MeshVer
+	/// \sa \ref AdvMeshVer
 	/// \param fMinWeight Threshold value under which bone weights will be ignored (suggested value: 0.01f)
 	/// \param nMinVertexNum - Expected number of vertices, or 0 when no new vertices expected - see remark below
 	/// \remark Creates the Weight Control Structure that is used by \ref AddBlendWeight
@@ -613,13 +641,13 @@ interface IMesh : IFWUnknown
 	/// \return \ref FW_E_NOTREADY if buffers not initialized or \ref Open not called.
 	/// \return \ref FW_E_FORMAT if the vertex format does not contain blending data (\ref MESH_VERTEX_BONEWEIGHT)
 	/// or too few bones have been declared
-	HRESULT SupportBlendWeight([in] FWFLOAT fMinWeight, [in] FWULONG nMinVertexNum);
+	HRESULT InitAdvVertexBlending([in] FWFLOAT fMinWeight, [in] FWULONG nMinVertexNum);
 	/// Adds the bone weight for the given vertex.
-	/// \sa \ref MeshVer
+	/// \sa \ref AdvMeshVer
 	/// \param iVertex Vertex index \param fWeight The bone weight (0..1) \param pBoneName The bone name
-	/// \remark The \ref MeshVer engine automatically assigns a unique index to each bone name. Least significant
+	/// \remark The \ref AdvMeshVer engine automatically assigns a unique index to each bone name. Least significant
 	/// bones may be ignored, regarding hardware capabilities.
-	/// \return \ref FW_E_NOTREADY if if buffers not initialized or \ref Open not called or \ref SupportBlendWeight not called.
+	/// \return \ref FW_E_NOTREADY if if buffers not initialized or \ref Open not called or \ref InitAdvVertexBlending not called.
 	/// \return \ref FW_E_MEMOVERRUN if iVertex out of range.
 	HRESULT AddBlendWeight([in] FWULONG iVertex, [in] FWFLOAT fWeight, [in, string] LPOLESTR pBoneName);
 
@@ -635,7 +663,7 @@ interface IMesh : IFWUnknown
 	/// \retval *pSubmeshLen Array of size *pnSubmeshNum: entries contain total number of faces in consecutive submeshes
 	/// \retval *pSubmeshBones Array of size *pnSubmeshNum * *pnBoneNum: entries contain lists of bone indices for each submesh
 	/// \return \ref FW_E_FORMAT if no submesh division (\ref SupportsSubmeshedVertexBlending is not S_OK)
-	/// \return \ref FW_E_NOTREADY if \ref SupportBlendWeight not called
+	/// \return \ref FW_E_NOTREADY if \ref InitAdvVertexBlending not called
 	HRESULT GetSubmeshInfo([out] FWULONG *pnSubmeshNum, [out] FWULONG *pnBoneNum, [out] FWULONG **pSubmeshLen, [out] FWULONG **pSubmeshBones);
 };
 

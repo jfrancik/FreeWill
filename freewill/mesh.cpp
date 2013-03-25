@@ -15,7 +15,6 @@ CMesh::CMesh()
 	m_pVertexBuffer = NULL;
 	m_pFaceBuffer = NULL;
 	m_pDictionary = NULL;
-	m_bHasBytes = false;
 	m_pVertexBytes = m_pFaceBytes = NULL;
 	m_nVertexFirst = m_nVertexNum = m_nVertexMaxSize  = m_nFaceFirst = m_nFaceNum = m_nFaceMaxSize = 0;
 	m_pCtrl = NULL;
@@ -30,11 +29,10 @@ CMesh::CMesh()
 CMesh::~CMesh()
 { 
 	if (m_pTransform) m_pTransform->Release();
-	if (m_bHasBytes)
+	if (m_pVertexBytes || m_pFaceBytes)
 		Close();
 	if (m_pVertexBuffer) m_pVertexBuffer->Release();
 	if (m_pFaceBuffer) m_pFaceBuffer->Release();
-	m_bHasBytes = false;
 	BWDisposeStuff();
 	if (m_pCtrl) delete [] m_pCtrl;
 	if (m_pDictionary) m_pDictionary->Release();
@@ -65,7 +63,7 @@ HRESULT CMesh::GetBuffers(IMeshVertexBuffer **pV, IMeshFaceBuffer **pF)
 
 HRESULT CMesh::PutBuffers(IMeshVertexBuffer *pVertexBuffer, IMeshFaceBuffer *pFaceBuffer)
 {
-	if (m_bHasBytes) return ERROR(FW_E_NOTREADY);	// cannot change buffers when bytes allocated
+	if (m_pVertexBytes || m_pFaceBytes) return ERROR(FW_E_NOTREADY);	// cannot change buffers when bytes allocated
 
 	if (pVertexBuffer) 
 	{
@@ -75,11 +73,23 @@ HRESULT CMesh::PutBuffers(IMeshVertexBuffer *pVertexBuffer, IMeshFaceBuffer *pFa
 		m_pVertexBytes = NULL;
 		m_nVertexFirst = m_nVertexNum = m_nVertexMaxSize  = 0;
 		m_pVertexBuffer->GetCaps(MESH_VERTEXID_XYZ, 0, &m_offsetXYZ, &m_sizeXYZ);
+		m_pVertexBuffer->GetCaps(MESH_VERTEXID_NORMAL, 0, &m_offsetNormal, &m_sizeNormal);
 		m_pVertexBuffer->GetCaps(MESH_VERTEXID_POINTSIZE, 0, &m_offsetPointSize, &m_sizePointSize);
 		m_pVertexBuffer->GetCaps(MESH_VERTEXID_DIFFUSE, 0, &m_offsetDiffuse, &m_sizeDiffuse);
 		m_pVertexBuffer->GetCaps(MESH_VERTEXID_SPECULAR, 0, &m_offsetSpecular, &m_sizeSpecular);
-		for (int i = 0; i < 16; i++)
-			m_pVertexBuffer->GetCaps(MESH_VERTEXID_TEXTURE, i, &m_offsetTexture[i], &m_sizeTexture[i]);
+		
+		
+		
+		m_pVertexBuffer->GetCaps(MESH_VERTEXID_TEXTURE,    0, &m_offsetTexture[0], &m_sizeTexture);
+		for (int i = 1; i < 16; i++)
+			m_pVertexBuffer->GetCaps(MESH_VERTEXID_TEXTURE,    i, &m_offsetTexture[i], NULL);
+		m_pVertexBuffer->GetCaps(MESH_VERTEXID_BONEWEIGHT, 0, &m_offsetBoneWeight[0], &m_sizeBoneWeight);
+		m_pVertexBuffer->GetCaps(MESH_VERTEXID_BONEWEIGHT, 1, &m_offsetBoneWeight[1], NULL);
+		m_pVertexBuffer->GetCaps(MESH_VERTEXID_BONEWEIGHT, 2, &m_offsetBoneWeight[2], NULL);
+		m_pVertexBuffer->GetCaps(MESH_VERTEXID_BONEINDEX,  0, &m_offsetBoneIndex[0], &m_sizeBoneIndex);
+		m_pVertexBuffer->GetCaps(MESH_VERTEXID_BONEINDEX,  1, &m_offsetBoneIndex[1], NULL);
+		m_pVertexBuffer->GetCaps(MESH_VERTEXID_BONEINDEX,  2, &m_offsetBoneIndex[2], NULL);
+		m_pVertexBuffer->GetFormat(&m_nVertexFormat, &m_nBonesPerVertex, &m_nTexturesPerVertex);
 	}
 	if (pFaceBuffer) 
 	{
@@ -114,11 +124,14 @@ HRESULT CMesh::PutDictionary(IMeshDictionary *pDictionary)
 /////////////////////////////////////////////////////////////////////////////
 // caps
 
-HRESULT CMesh::GetVertexFormat(/*[out]*/ FWULONG *nFormat, /*[out]*/ FWULONG *nBones, /*[out]*/ FWULONG *nTextures, /*[out]*/ FWULONG *nVertexSize)
+HRESULT CMesh::GetVertexFormat(/*[out]*/ FWULONG *pnFormat, /*[out]*/ FWULONG *pnBones, /*[out]*/ FWULONG *pnTextures, /*[out]*/ FWULONG *pnVertexSize)
 {
 	if (!m_pVertexBuffer) return ERROR(FW_E_NOTREADY);
-	m_pVertexBuffer->GetItemSize(nVertexSize);
-	return m_pVertexBuffer->GetFormat(nFormat, nBones, nTextures);
+	m_pVertexBuffer->GetItemSize(pnVertexSize);
+	if (pnFormat)	*pnFormat = m_nVertexFormat;
+	if (pnBones)	*pnBones = m_nBonesPerVertex;
+	if (pnTextures)	*pnTextures = m_nTexturesPerVertex;
+	return S_OK;
 }
 
 HRESULT CMesh::GetVertexCaps(enum MESH_VERTEXID nFlag, FWULONG nIndex, /*[out]*/ FWULONG *pOffset, /*[out,retval]*/ FWULONG *pSize)
@@ -127,21 +140,19 @@ HRESULT CMesh::GetVertexCaps(enum MESH_VERTEXID nFlag, FWULONG nIndex, /*[out]*/
 	return m_pVertexBuffer->GetCaps(nFlag, nIndex, pOffset, pSize);
 }
 
-HRESULT CMesh::GetFaceFormat(/*[out]*/ FWULONG *nSizeOfVertexIndex)
+HRESULT CMesh::GetFaceFormat(/*[out]*/ FWULONG *pnSizeOfVertexIndex)
 {
 	if (!m_pFaceBuffer) return ERROR(FW_E_NOTREADY);
-	if (!nSizeOfVertexIndex) return S_OK;
-	m_pFaceBuffer->GetItemSize(nSizeOfVertexIndex);
-	*nSizeOfVertexIndex /= 3;
+	if (!pnSizeOfVertexIndex) return S_OK;
+	m_pFaceBuffer->GetItemSize(pnSizeOfVertexIndex);
+	*pnSizeOfVertexIndex /= 3;
 	return S_OK;
 }
 
 HRESULT CMesh::SupportsVertexBlending()
 {
 	if (!m_pVertexBuffer) return ERROR(FW_E_NOTREADY);
-	FWULONG nFormat;
-	m_pVertexBuffer->GetFormat(&nFormat, NULL, NULL);
-	if (nFormat & MESH_VERTEX_BONEWEIGHT)
+	if (m_nVertexFormat & MESH_VERTEX_BONEWEIGHT)
 		return S_OK;
 	else
 		return S_FALSE;
@@ -150,17 +161,13 @@ HRESULT CMesh::SupportsVertexBlending()
 HRESULT CMesh::SupportsIndexedVertexBlending()
 {
 	if (!m_pVertexBuffer) return ERROR(FW_E_NOTREADY);
-	FWULONG nFormat;
-	m_pVertexBuffer->GetFormat(&nFormat, NULL, NULL);
-	return ((nFormat & MESH_VERTEX_BONEWEIGHT) && (nFormat & MESH_VERTEX_BONEINDEX)) ? S_OK : S_FALSE;
+	return ((m_nVertexFormat & MESH_VERTEX_BONEWEIGHT) && (m_nVertexFormat & MESH_VERTEX_BONEINDEX)) ? S_OK : S_FALSE;
 }
 
 HRESULT CMesh::SupportsSubmeshedVertexBlending()
 {
 	if (!m_pVertexBuffer) return ERROR(FW_E_NOTREADY);
-	FWULONG nFormat;
-	m_pVertexBuffer->GetFormat(&nFormat, NULL, NULL);
-	return ((nFormat & MESH_VERTEX_BONEWEIGHT) && !(nFormat & MESH_VERTEX_BONEINDEX)) ? S_OK : S_FALSE;
+	return ((m_nVertexFormat & MESH_VERTEX_BONEWEIGHT) && !(m_nVertexFormat & MESH_VERTEX_BONEINDEX)) ? S_OK : S_FALSE;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -173,8 +180,12 @@ HRESULT CMesh::GetSubmeshInfo(FWULONG *pnSubmeshNum, FWULONG *pnBoneNum, FWULONG
 	if (!m_pSubmeshLen || !m_pSubmeshBones)
 		return ERROR(FW_E_NOTREADY);
 
+	// small amendment if a single-submesh simple structure (no InitAdvVertexBlending called)
+	if (m_nSubmeshNum == 1 && *m_pSubmeshLen == 0xffffffff)
+		*m_pSubmeshLen = m_nFaceNum;
+
 	if (pnSubmeshNum) *pnSubmeshNum = m_nSubmeshNum;
-	if (pnBoneNum) *pnBoneNum = m_nBoneNum;
+	if (pnBoneNum) *pnBoneNum = m_nBonesPerVertex;
 	if (pSubmeshLen) *pSubmeshLen = m_pSubmeshLen;
 	if (pSubmeshBones) *pSubmeshBones = m_pSubmeshBones;
 	return S_OK;
@@ -185,14 +196,14 @@ HRESULT CMesh::GetSubmeshInfo(FWULONG *pnSubmeshNum, FWULONG *pnBoneNum, FWULONG
 
 HRESULT CMesh::Open(/*[out]*/ BYTE **ppVertexBytes, /*[out]*/ BYTE **ppFaceBytes)
 {
-	if (m_bHasBytes)
+	if (m_pVertexBytes || m_pFaceBytes)
 	{
 		if (ppVertexBytes) *ppVertexBytes = m_pVertexBytes;
 		if (ppFaceBytes) *ppFaceBytes = m_pFaceBytes;
 		return S_OK;
 	}
 
-	if (!m_pVertexBuffer || !m_pFaceBuffer || m_bHasBytes) 
+	if (!m_pVertexBuffer || !m_pFaceBuffer || m_pVertexBytes || m_pFaceBytes) 
 		return ERROR(FW_E_NOTREADY);
 	
 	HRESULT h;
@@ -211,7 +222,7 @@ HRESULT CMesh::Open(/*[out]*/ BYTE **ppVertexBytes, /*[out]*/ BYTE **ppFaceBytes
 	m_pVertexBuffer->GetFreeSize(&m_nVertexMaxSize);
 	m_pVertexBuffer->GetItemSize(&m_nVertexItemSize);
 	if (ppVertexBytes) *ppVertexBytes = m_pVertexBytes;
-
+			
 	// set face params
 	m_pFaceBuffer->GetDataSize(&m_nFaceFirst);
 	m_nFaceNum = 0;
@@ -219,7 +230,15 @@ HRESULT CMesh::Open(/*[out]*/ BYTE **ppVertexBytes, /*[out]*/ BYTE **ppFaceBytes
 	m_pFaceBuffer->GetItemSize(&m_nFaceItemSize);
 	if (ppFaceBytes) *ppFaceBytes = m_pFaceBytes;
 
-	m_bHasBytes = true;
+	// open the submesh buffer - for a single submesh only
+	if ((m_nVertexFormat & MESH_VERTEX_BONEWEIGHT) && m_nBonesPerVertex >= 2)
+	{
+		m_nSubmeshNum = 1;
+		m_pSubmeshLen = new FWULONG[1];
+		m_pSubmeshLen[0] = 0xffffffff;
+		m_pSubmeshBones = new FWULONG[m_nBonesPerVertex];
+		memset(m_pSubmeshBones, 0xff, m_nBonesPerVertex * sizeof(m_nBonesPerVertex));
+	}
 
 	return S_OK;
 }
@@ -228,7 +247,7 @@ HRESULT CMesh::Close()
 {
 	HRESULT h = S_OK, h1;
 
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
 
 	if (m_bBWOn) h = BWFinalize();	// h is not critical error here!
 
@@ -239,7 +258,6 @@ HRESULT CMesh::Close()
 
 	m_nVertexMaxSize = m_nFaceMaxSize = 0;
 	m_pVertexBytes = m_pFaceBytes = NULL;
-	m_bHasBytes = false;
 
 	return h;
 }
@@ -276,7 +294,7 @@ HRESULT CMesh::SetVertexXYZ(FWULONG iVertex, FWFLOAT x, FWFLOAT y, FWFLOAT z)
 
 HRESULT CMesh::SetVertexXYZVector(FWULONG iVertex, FWVECTOR v)
 {
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
 	FWFLOAT *p;
 	switch (m_sizeXYZ)
 	{
@@ -294,9 +312,35 @@ HRESULT CMesh::SetVertexXYZVector(FWULONG iVertex, FWVECTOR v)
 	return S_OK;
 }
 
+HRESULT CMesh::SetNormal(FWULONG iVertex, FWFLOAT x, FWFLOAT y, FWFLOAT z)
+{
+	FWVECTOR v = { x, y, z};
+	return SetNormalVector(iVertex, v);
+}
+
+HRESULT CMesh::SetNormalVector(FWULONG iVertex, FWVECTOR v)
+{
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
+	FWFLOAT *p;
+	switch (m_sizeNormal)
+	{
+	case 12:
+		p = (FWFLOAT*)(m_pVertexBytes + iVertex * m_nVertexItemSize + m_offsetNormal);
+		if (m_pTransform) m_pTransform->ApplyRotationTo(&v);
+		*p++ = v.x;
+		*p++ = v.y;
+		*p++ = v.z;
+		m_nVertexNum = max(m_nVertexNum, iVertex + 1);
+		break;
+	default:
+		return ERROR(FW_E_FORMAT);
+	}
+	return S_OK;
+}
+
 HRESULT CMesh::SetVertexPointSize(FWULONG iVertex, FWULONG val)
 {
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
 	switch (m_sizePointSize)
 	{
 	case 4:
@@ -315,7 +359,7 @@ HRESULT CMesh::SetVertexPointSize(FWULONG iVertex, FWULONG val)
 
 HRESULT CMesh::SetVertexDiffuse(FWULONG iVertex, FWULONG val)
 {
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
 	switch (m_sizeDiffuse)
 	{
 	case 4:
@@ -330,7 +374,7 @@ HRESULT CMesh::SetVertexDiffuse(FWULONG iVertex, FWULONG val)
 
 HRESULT CMesh::SetVertexSpecular(FWULONG iVertex, FWULONG val)
 {
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
 	switch (m_sizeSpecular)
 	{
 	case 4:
@@ -345,8 +389,8 @@ HRESULT CMesh::SetVertexSpecular(FWULONG iVertex, FWULONG val)
 
 HRESULT CMesh::SetVertexTexture(FWULONG iVertex, FWULONG iTexture, FWULONG val)
 {
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
-	switch (m_sizeTexture[iTexture])
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
+	switch (m_sizeTexture)
 	{
 	case 4:
 		*((FWULONG*)(m_pVertexBytes + iVertex * m_nVertexItemSize + m_offsetTexture[iTexture])) = val;
@@ -364,7 +408,7 @@ HRESULT CMesh::SetVertexTexture(FWULONG iVertex, FWULONG iTexture, FWULONG val)
 
 HRESULT CMesh::SetVertexTextureUV(FWULONG iVertex, FWULONG iTexture, FWFLOAT u, FWFLOAT v)
 {
-	if (m_sizeTexture[iTexture] < 2*sizeof(FWFLOAT))
+	if (m_sizeTexture < 2*sizeof(FWFLOAT))
 		return ERROR(FW_E_FORMAT);		
 	if (iTexture < 16)
 	{
@@ -375,6 +419,74 @@ HRESULT CMesh::SetVertexTextureUV(FWULONG iVertex, FWULONG iTexture, FWFLOAT u, 
 		return S_OK;
 	}
 	return S_FALSE;
+}
+
+HRESULT CMesh::SetBoneName(FWULONG iVertex, FWULONG iBone, FWSTRING strBoneName)
+{
+	FWULONG iIndex;
+	m_pDictionary->GetIndex(strBoneName, &iIndex);
+	if (iIndex > 255)
+		return ERROR(FW_E_FORMAT);
+	return SetBoneIndex(iVertex, iBone ,(BYTE)iIndex);
+}
+
+HRESULT CMesh::SetBoneWeight(FWULONG iVertex, FWULONG iBone, FWFLOAT fBoneWeight)
+{
+	if (iBone >= 3 || iBone >= m_nBonesPerVertex)
+		return S_FALSE;
+
+	if (m_sizeBoneWeight != sizeof(FLOAT))
+		return ERROR(FW_E_FORMAT);
+
+	FWFLOAT *pBW = (FWFLOAT*)(m_pVertexBytes + iVertex*m_nVertexItemSize + m_offsetBoneWeight[iBone]);
+	*pBW = fBoneWeight;
+	return S_OK;
+}
+
+HRESULT CMesh::SetBoneIndex(FWULONG iVertex, FWULONG iBone, BYTE iBoneIndex)
+{
+	if (iBone >= 3 || iBone >= m_nBonesPerVertex)
+		return S_FALSE;
+
+	if (m_sizeBoneIndex == 0)
+	{
+		// no indexed vertex blending - store indices as per mesh basis
+		if (m_nSubmeshNum != 1 || m_pSubmeshBones == NULL)
+			return ERROR(FW_E_NOTREADY);
+		m_pSubmeshBones[iBone] = iBoneIndex;
+		return S_OK;
+	}
+	else
+	{
+		if (m_sizeBoneIndex != sizeof(BYTE))
+			return ERROR(FW_E_FORMAT);
+
+		BYTE *pBI = (BYTE*)(m_pVertexBytes + iVertex*m_nVertexItemSize + m_offsetBoneIndex[iBone]);
+		*pBI = iBoneIndex;
+		return S_OK;
+	}
+}
+
+HRESULT CMesh::SetFace(FWULONG iFace, FWULONG iVertexA, FWULONG iVertexB, FWULONG iVertexC)
+{
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
+	if (m_bFace32)
+	{
+		FWULONG *p = ((FWULONG*)m_pFaceBytes) + 3 * iFace;
+		*p++ = iVertexA;
+		*p++ = iVertexB;
+		*p++ = iVertexC;
+		m_nFaceNum = max(m_nFaceNum, iFace + 1);
+	}
+	else
+	{
+		USHORT *p = ((USHORT*)m_pFaceBytes) + 3 * iFace;
+		*p++ = (USHORT)iVertexA;
+		*p++ = (USHORT)iVertexB;
+		*p++ = (USHORT)iVertexC;
+		m_nFaceNum = max(m_nFaceNum, iFace + 1);
+	}
+	return S_OK;
 }
 
 HRESULT CMesh::SetMaterial(IMaterial *pMaterial)
@@ -404,37 +516,13 @@ HRESULT CMesh::GetMaterial(IMaterial **ppMaterial)
 	return S_FALSE;
 }
 
-HRESULT CMesh::SetFace(FWULONG iFace, FWULONG iVertexA, FWULONG iVertexB, FWULONG iVertexC)
-{
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
-	if (m_bFace32)
-	{
-		FWULONG *p = ((FWULONG*)m_pFaceBytes) + 3 * iFace;
-		*p++ = iVertexA;
-		*p++ = iVertexB;
-		*p++ = iVertexC;
-		m_nFaceNum = max(m_nFaceNum, iFace + 1);
-	}
-	else
-	{
-		USHORT *p = ((USHORT*)m_pFaceBytes) + 3 * iFace;
-		*p++ = (USHORT)iVertexA;
-		*p++ = (USHORT)iVertexB;
-		*p++ = (USHORT)iVertexC;
-		m_nFaceNum = max(m_nFaceNum, iFace + 1);
-	}
-	return S_OK;
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // support for normals
 
-HRESULT CMesh::SupportNormal(FWULONG nLimit)
+HRESULT CMesh::InitAdvNormalSupport(FWULONG nLimit)
 {
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
 
-	// set vertex size & normal offset
-	m_pVertexBuffer->GetCaps(MESH_VERTEXID_NORMAL, 0, &m_nNormalOffset, NULL);
 	// determine control buffer length
 	m_nCtrlSize = nLimit;
 	if (m_nCtrlSize == 0) m_nCtrlSize = m_nVertexMaxSize;
@@ -454,12 +542,12 @@ HRESULT CMesh::AddNormal(/*[in, out]*/ FWULONG *index, FWFLOAT x, FWFLOAT y, FWF
 
 HRESULT CMesh::AddNormalVector(/*[in, out]*/ FWULONG *index, FWVECTOR v)
 {
-	if (!m_bHasBytes || m_pCtrl == NULL) return ERROR(FW_E_NOTREADY);
+	if (!m_pVertexBytes || !m_pFaceBytes || m_pCtrl == NULL) return ERROR(FW_E_NOTREADY);
 
 	if (m_pTransform) m_pTransform->ApplyRotationTo(&v);
 
 	BYTE *pVertex = m_pVertexBytes + *index * m_nVertexItemSize;
-	FWFLOAT *p = (FWFLOAT*)(pVertex + m_nNormalOffset);
+	FWFLOAT *p = (FWFLOAT*)(pVertex + m_offsetNormal);
 
 	while (m_pCtrl[*index] != 0xffffffff)
 	{
@@ -477,7 +565,7 @@ HRESULT CMesh::AddNormalVector(/*[in, out]*/ FWULONG *index, FWVECTOR v)
 			*index = m_nVertexNum;
 			m_nVertexNum++;
 			BYTE *qVertex = m_pVertexBytes + *index * m_nVertexItemSize;
-			FWFLOAT *q = (FWFLOAT*)(qVertex + m_nNormalOffset);
+			FWFLOAT *q = (FWFLOAT*)(qVertex + m_offsetNormal);
 			memcpy(qVertex, pVertex, m_nVertexItemSize);
 			p = q; pVertex = qVertex;
 			break;
@@ -486,7 +574,7 @@ HRESULT CMesh::AddNormalVector(/*[in, out]*/ FWULONG *index, FWVECTOR v)
 		{
 			*index = m_pCtrl[*index];
 			pVertex = m_pVertexBytes + *index * m_nVertexItemSize;
-			p = (FWFLOAT*)(pVertex + m_nNormalOffset);
+			p = (FWFLOAT*)(pVertex + m_offsetNormal);
 		}
 	}
 	*p++ = v.x;	// we assume that normal x, y, z are stored as three consecutive floats
@@ -499,24 +587,27 @@ HRESULT CMesh::AddNormalVector(/*[in, out]*/ FWULONG *index, FWVECTOR v)
 /////////////////////////////////////////////////////////////////////////////
 // support for blend weights
 
-HRESULT CMesh::SupportBlendWeight(FWFLOAT fMinWeight, FWULONG nMinVertexNum)
+HRESULT CMesh::InitAdvVertexBlending(FWFLOAT fMinWeight, FWULONG nMinVertexNum)
 {
-	if (!m_bHasBytes) return ERROR(FW_E_NOTREADY);
+	if (!m_pVertexBytes || !m_pFaceBytes) return ERROR(FW_E_NOTREADY);
 
 	BWDisposeStuff();
-	FWULONG nFormat, nBones;
-	m_pVertexBuffer->GetFormat(&nFormat, &nBones, NULL);
-	if (!(nFormat & MESH_VERTEX_BONEWEIGHT) || nBones < 2)
+	if (!(m_nVertexFormat & MESH_VERTEX_BONEWEIGHT) || m_nBonesPerVertex < 2)
 		return ERROR(FW_E_FORMAT);
 
 	m_bBWOn = SupportsVertexBlending() == S_OK;
 	if (!m_bBWOn) return ERROR(FW_E_FORMAT);
 
+	// reset any submesh structure
+	m_nSubmeshNum = 0;
+	if (m_pSubmeshLen) delete [] m_pSubmeshLen;
+	if (m_pSubmeshBones) delete [] m_pSubmeshBones;
+
+
 	m_nBWVertexNum = max(nMinVertexNum, m_nVertexNum);
-	m_nBoneNum = nBones;
-	m_pBWWeights = new FWFLOAT[m_nBWVertexNum * m_nBoneNum];
-	memset(m_pBWWeights, 0, sizeof(FWFLOAT) * m_nBWVertexNum * m_nBoneNum);
-	m_pBWIndices = new FWULONG[m_nBWVertexNum * m_nBoneNum];
+	m_pBWWeights = new FWFLOAT[m_nBWVertexNum * m_nBonesPerVertex];
+	memset(m_pBWWeights, 0, sizeof(FWFLOAT) * m_nBWVertexNum * m_nBonesPerVertex);
+	m_pBWIndices = new FWULONG[m_nBWVertexNum * m_nBonesPerVertex];
 	m_fBWMinWeight = fMinWeight;
 	return S_OK;
 }
@@ -535,15 +626,15 @@ HRESULT CMesh::AddBlendWeight(FWULONG iVertex, FWFLOAT fWeight, LPOLESTR pBoneNa
 	m_pDictionary->GetIndex(pBoneName, &iBone);
 
 	// find minimum (it'll contain 0 if it there's a free place)
-	FWFLOAT *pWeight = m_pBWWeights + iVertex * m_nBoneNum, *pMinWeight = pWeight, fMin = *pMinWeight;
-	FWULONG *pIndex  = m_pBWIndices + iVertex * m_nBoneNum, *pMinIndex  = pIndex;
+	FWFLOAT *pWeight = m_pBWWeights + iVertex * m_nBonesPerVertex, *pMinWeight = pWeight, fMin = *pMinWeight;
+	FWULONG *pIndex  = m_pBWIndices + iVertex * m_nBonesPerVertex, *pMinIndex  = pIndex;
 	if (*pIndex == iBone)
 	{	// earlier entry for the same bone - will be cumulated... @@@ 25/06/2004
 		*pWeight += fWeight;
 		return S_OK;
 	}
 	pWeight++, pIndex++;
-	for (FWULONG i = 1; fMin > 0.0f && i < m_nBoneNum; i++, pWeight++, pIndex++)
+	for (FWULONG i = 1; fMin > 0.0f && i < m_nBonesPerVertex; i++, pWeight++, pIndex++)
 		if (*pIndex == iBone)
 		{	// earlier entry for the same bone - will be cumulated...  @@@ 25/06/2004
 			*pWeight += fWeight;
@@ -572,9 +663,9 @@ HRESULT CMesh::BWFinalize()
 	FWULONG i, j, k, l;
 	FWFLOAT *pFloat, *qFloat;
 	FWULONG *pULong, *qULong;
-	const FWULONG nFaceSize = m_bFace32 ? 12 : 6;					// size of face item
-	const FWULONG nBonesFloatSize = sizeof(FWFLOAT) * m_nBoneNum;	// face of FWFLOAT array of bones
-	const FWULONG nBonesULongSize = sizeof(FWULONG) * m_nBoneNum;	// face of FWULONG array of bones
+	const FWULONG nFaceSize = m_bFace32 ? 12 : 6;							// size of face item
+	const FWULONG nBonesFloatSize = sizeof(FWFLOAT) * m_nBonesPerVertex;	// face of FWFLOAT array of bones
+	const FWULONG nBonesULongSize = sizeof(FWULONG) * m_nBonesPerVertex;	// face of FWULONG array of bones
 
 	///////////////////////////
 	// Introductory Preparation
@@ -586,11 +677,11 @@ HRESULT CMesh::BWFinalize()
 	// reallocate buffers if necessary
 	if (m_nVertexNum > m_nBWVertexNum)
 	{
-		pFloat = new FWFLOAT[m_nVertexNum * m_nBoneNum];
+		pFloat = new FWFLOAT[m_nVertexNum * m_nBonesPerVertex];
 		memcpy(pFloat, m_pBWWeights, m_nBWVertexNum * nBonesFloatSize);
 		delete [] m_pBWWeights; 
 		m_pBWWeights = pFloat;
-		pULong = new FWULONG[m_nVertexNum * m_nBoneNum];
+		pULong = new FWULONG[m_nVertexNum * m_nBonesPerVertex];
 		memcpy(pULong, m_pBWIndices, m_nBWVertexNum * nBonesULongSize);
 		delete [] m_pBWIndices; 
 		m_pBWIndices = pULong;
@@ -612,8 +703,8 @@ HRESULT CMesh::BWFinalize()
 			while (*pULong != j && *pULong != 0xffffffff)
 			{
 				// vertex[*pULong] is a copy of vertex[j]
-				memcpy(m_pBWWeights + *pULong * m_nBoneNum, m_pBWWeights + j * m_nBoneNum, nBonesFloatSize);
-				memcpy(m_pBWIndices + *pULong * m_nBoneNum, m_pBWIndices + j * m_nBoneNum, nBonesULongSize);
+				memcpy(m_pBWWeights + *pULong * m_nBonesPerVertex, m_pBWWeights + j * m_nBonesPerVertex, nBonesFloatSize);
+				memcpy(m_pBWIndices + *pULong * m_nBonesPerVertex, m_pBWIndices + j * m_nBonesPerVertex, nBonesULongSize);
 				j = *pULong;
 				pULong = m_pCtrl + j;
 			}
@@ -631,16 +722,16 @@ HRESULT CMesh::BWFinalize()
 
 	////////////////////////////////////////////////////////////
 	// Normalize Faces: reduce number of bones for each triangle
-	// Max number of bones PER triangle is m_nBoneNum, but no less than three
+	// Max number of bones PER triangle is m_nBonesPerVertex, but no less than three
 
-	FWULONG nMaxBonesPerTriangle = (m_nBoneNum >= 3) ? m_nBoneNum : 3;
+	FWULONG nMaxBonesPerTriangle = (m_nBonesPerVertex >= 3) ? m_nBonesPerVertex : 3;
 
-	pFloat = qFloat = new FWFLOAT[m_nBoneNum * 3];	// pFloat..qFloat - array of weights used by this triangle
-	pULong = qULong = new FWULONG[m_nBoneNum * 3];	// pULong..qULong - array of indices used by this triangle
+	pFloat = qFloat = new FWFLOAT[m_nBonesPerVertex * 3];	// pFloat..qFloat - array of weights used by this triangle
+	pULong = qULong = new FWULONG[m_nBonesPerVertex * 3];	// pULong..qULong - array of indices used by this triangle
 
 	for (i = 0; i < m_nFaceNum; i++)	// for each triangle face
 	{
-		// the normalization loop - repeat until the face depends on no more than m_nBoneNum
+		// the normalization loop - repeat until the face depends on no more than m_nBonesPerVertex
 		do
 		{
 			// scan thru all three vertices & their all bones to collect all distinctive bones
@@ -651,10 +742,10 @@ HRESULT CMesh::BWFinalize()
 			for (j = 0; j < 3; j++)	// for each vertex
 			{
 				FWULONG iVertex = BWVertexFromFace(i, j);
-				for (k = 0; k < m_nBoneNum; k++)	// for each bone
+				for (k = 0; k < m_nBonesPerVertex; k++)	// for each bone
 				{
-					FWFLOAT fWeight = m_pBWWeights[iVertex * m_nBoneNum + k];
-					FWULONG nIndex  = m_pBWIndices[iVertex * m_nBoneNum + k];
+					FWFLOAT fWeight = m_pBWWeights[iVertex * m_nBonesPerVertex + k];
+					FWULONG nIndex  = m_pBWIndices[iVertex * m_nBonesPerVertex + k];
 					if (fWeight == 0) continue;
 					// do we already have this bone index?
 					FWFLOAT *pF;
@@ -696,9 +787,9 @@ HRESULT CMesh::BWFinalize()
 				// @@@ One usefull idea would be to delete here all bones [significantly] 
 				// weaker then the minimum taken from the triangle - why to leave it if sth stronger is deleted...
 				FWULONG iVertex = BWVertexFromFace(i, j);
-				for (k = 0; k < m_nBoneNum; k++)	// for each bone
-					if (m_pBWIndices[iVertex * m_nBoneNum + k] == iToDel)
-						m_pBWWeights[iVertex * m_nBoneNum + k] = 0.0f;
+				for (k = 0; k < m_nBonesPerVertex; k++)	// for each bone
+					if (m_pBWIndices[iVertex * m_nBonesPerVertex + k] == iToDel)
+						m_pBWWeights[iVertex * m_nBonesPerVertex + k] = 0.0f;
 				BWNormalizeVertex(iVertex);
 			}
 			qFloat--;
@@ -716,24 +807,24 @@ HRESULT CMesh::BWFinalize()
 	// This step is indispensable: the task could not be completed during normalization, as
 	// the normalization of consecutive faces could affect data belonging to previous faces.
 
-	FWULONG *pPerFaceNum = new FWULONG[m_nFaceNum];					// number of different bone indices
-	FWULONG *pPerFaceInd = new FWULONG[m_nFaceNum * m_nBoneNum];	// bone indices used in this face
+	FWULONG *pPerFaceNum = new FWULONG[m_nFaceNum];						// number of different bone indices
+	FWULONG *pPerFaceInd = new FWULONG[m_nFaceNum * m_nBonesPerVertex];	// bone indices used in this face
 	memset(pPerFaceInd, 0xffffffff, m_nFaceNum * nBonesULongSize);
-		// notice: faces are already normalised, therefore it is safe to use m_nBoneNum positions per face
+		// notice: faces are already normalised, therefore it is safe to use m_nBonesPerVertex positions per face
 
 	FWULONG *pNum = pPerFaceNum;
 	for (i = 0; i < m_nFaceNum; i++, pNum++)	// for each triangle face
 	{
 		// scan thru all three vertices & their all bones to collect all distinctive bones
-		FWULONG *pInd = pPerFaceInd + i * m_nBoneNum, *qInd = pInd;
+		FWULONG *pInd = pPerFaceInd + i * m_nBonesPerVertex, *qInd = pInd;
 		*pNum = 0;
 		for (j = 0; j < 3; j++)	// for each vertex
 		{
 			FWULONG iVertex = BWVertexFromFace(i, j);
-			for (k = 0; k < m_nBoneNum; k++)	// for each bone
-				if (m_pBWWeights[iVertex * m_nBoneNum + k])		// positive weight
+			for (k = 0; k < m_nBonesPerVertex; k++)	// for each bone
+				if (m_pBWWeights[iVertex * m_nBonesPerVertex + k])		// positive weight
 				{
-					FWULONG nIndex  = m_pBWIndices[iVertex * m_nBoneNum + k];
+					FWULONG nIndex  = m_pBWIndices[iVertex * m_nBonesPerVertex + k];
 					FWULONG *p;
 					for (p = pInd; p < qInd && *p != nIndex; p++)
 						;
@@ -741,13 +832,13 @@ HRESULT CMesh::BWFinalize()
 						*qInd++ = nIndex, (*pNum)++;
 				}
 		}
-		assert(*pNum <= m_nBoneNum);	// was deleted, i dont know why
+		assert(*pNum <= m_nBonesPerVertex);	// was deleted, i dont know why
 	}
 
 	/////////////////
 	// Find Submeshes
 
-	// faces are sorted in order to form a sequence of submeshes using no more than m_nBoneNum bones each
+	// faces are sorted in order to form a sequence of submeshes using no more than m_nBonesPerVertex bones each
 	// Input: 
 	//	m_pFaceBytes - buffer of faces
 	//	pPerFaceNum, pPerFaceInd - per face data (total number and indices of bones)
@@ -769,7 +860,7 @@ HRESULT CMesh::BWFinalize()
 	FWULONG *iPerFaceInd = pPerFaceInd;
 
 	// create the first submesh using the i'th face
-	i++, iPerFaceNum++, iPerFaceInd += m_nBoneNum;
+	i++, iPerFaceNum++, iPerFaceInd += m_nBonesPerVertex;
 	*qSubmeshLen = 1;
 	// memcpy(qSubmeshInd, iPerFaceInd, nBonesULongSize);
 	// notice that the last line is unnecessary as qSubmeshInd == pSubmeshInd
@@ -783,7 +874,7 @@ HRESULT CMesh::BWFinalize()
 		FWULONG *jPerFaceInd = iPerFaceInd;
 
 		// browse all unsorted faces
-		for (j = i; j < m_nFaceNum; j++, jPerFaceNum++, jPerFaceInd += m_nBoneNum)
+		for (j = i; j < m_nFaceNum; j++, jPerFaceNum++, jPerFaceInd += m_nBonesPerVertex)
 		{
 			// measure compatibility factor for the current face
 			FWULONG nCompIn = 0;	// how many compatible bones
@@ -798,7 +889,7 @@ HRESULT CMesh::BWFinalize()
 					}
 			nCompEx = *jPerFaceNum - nCompIn;
 			nCompScore = nCompIn * 256 + nCompEx;
-			if (nCurBones + nCompEx > m_nBoneNum) nCompScore = 0;
+			if (nCurBones + nCompEx > m_nBonesPerVertex) nCompScore = 0;
 
 			// check if the face may be a part of the current submesh
 			if (nCompEx == 0)
@@ -815,7 +906,7 @@ HRESULT CMesh::BWFinalize()
 					memcpy(jPerFaceInd, iPerFaceInd, nBonesULongSize);
 					if (i == iCandidate) iCandidate = j;	// correct iCandidate if necessary
 				}
-				i++, iPerFaceNum++, iPerFaceInd += m_nBoneNum;
+				i++, iPerFaceNum++, iPerFaceInd += m_nBonesPerVertex;
 				(*qSubmeshLen)++;
 			}
 			else 
@@ -825,11 +916,11 @@ HRESULT CMesh::BWFinalize()
 		}
 
 		// if there is a candidate for submesh extension
-		if (nCurBones < m_nBoneNum && nCandScore)
+		if (nCurBones < m_nBonesPerVertex && nCandScore)
 		{
 			// extend the submesh with the candidate definition
-			FWULONG nCandNum = pPerFaceNum[iCandidate];					// candidate's no of bones
-			FWULONG *pCandInd = pPerFaceInd + iCandidate * m_nBoneNum;	// candidate's bone indices
+			FWULONG nCandNum = pPerFaceNum[iCandidate];							// candidate's no of bones
+			FWULONG *pCandInd = pPerFaceInd + iCandidate * m_nBonesPerVertex;	// candidate's bone indices
 			for (k = 0; k < nCandNum; k++)
 			{
 				for (l = 0; l < nCurBones && pCandInd[k] != qSubmeshInd[l]; l++)
@@ -843,7 +934,7 @@ HRESULT CMesh::BWFinalize()
 		{
 			// close this submesh
 			qSubmeshLen++;
-			qSubmeshInd += m_nBoneNum;
+			qSubmeshInd += m_nBonesPerVertex;
 			// open a new one
 			*qSubmeshLen = 0;
 			memcpy(qSubmeshInd, iPerFaceInd, nBonesULongSize);
@@ -858,14 +949,14 @@ HRESULT CMesh::BWFinalize()
 
 	// close the final submesh
 	qSubmeshLen++;
-	qSubmeshInd += m_nBoneNum;
+	qSubmeshInd += m_nBonesPerVertex;
 
 	/////////////////////////
 	// Reconfigure Blend Data
 
 	m_nSubmeshNum = (FWULONG)(qSubmeshLen - pSubmeshLen);
 	m_pSubmeshLen = new FWULONG[m_nSubmeshNum];
-	m_pSubmeshBones = new FWULONG[m_nSubmeshNum * m_nBoneNum];
+	m_pSubmeshBones = new FWULONG[m_nSubmeshNum * m_nBonesPerVertex];
 	memcpy(m_pSubmeshLen, pSubmeshLen, m_nSubmeshNum * sizeof(FWULONG));
 	memcpy(m_pSubmeshBones, pSubmeshInd, m_nSubmeshNum * nBonesULongSize);
 
@@ -897,8 +988,8 @@ HRESULT CMesh::BWCopyToBufSubmeshed()
 	m_pVertexBuffer->GetItemSize(&m_nVertexItemSize);
 
 	// find addresses for bone weights
-	FWULONG *pOffset = new FWULONG[m_nBoneNum];
-	for (i = 0; i < m_nBoneNum; i++)
+	FWULONG *pOffset = new FWULONG[m_nBonesPerVertex];
+	for (i = 0; i < m_nBonesPerVertex; i++)
 	{
 		FWULONG nOffset, nSize;
 		m_pVertexBuffer->GetCaps(MESH_VERTEXID_BONEWEIGHT, i, &nOffset, &nSize);
@@ -923,7 +1014,7 @@ HRESULT CMesh::BWCopyToBufSubmeshed()
 		static FWULONG map[256];
 		memset(map, 0xff, sizeof(map));
 		FWULONG *p = pSubmeshBones;
-		for (j = 0; j < m_nBoneNum; j++, p++)
+		for (j = 0; j < m_nBonesPerVertex; j++, p++)
 			if (*p < 256)
 				map[*p] = pOffset[j];
 
@@ -936,8 +1027,8 @@ HRESULT CMesh::BWCopyToBufSubmeshed()
 				FWULONG iVertex = BWVertexFromFace(iFace, k);
 				BYTE *pVertex = m_pVertexBytes +  iVertex * m_nVertexItemSize;
 
-				FWFLOAT *pWeights = m_pBWWeights + iVertex * m_nBoneNum;
-				FWULONG *pIndices = m_pBWIndices + iVertex * m_nBoneNum;
+				FWFLOAT *pWeights = m_pBWWeights + iVertex * m_nBonesPerVertex;
+				FWULONG *pIndices = m_pBWIndices + iVertex * m_nBonesPerVertex;
 
 				// check if consistent
 				while (pCtrl[iVertex] != 0xffffffff && pCtrl[iVertex] != i)
@@ -967,12 +1058,12 @@ HRESULT CMesh::BWCopyToBufSubmeshed()
 				pCtrl[iVertex] = i;
 
 				// reset all bone weights
-				for (l = 0; l < m_nBoneNum; l++)
+				for (l = 0; l < m_nBonesPerVertex; l++)
 					if (pOffset[l] != 0xffffffff)
 						*(FWFLOAT*)(pVertex + pOffset[l]) = 0.0f;
 
 				// set weight for each submesh bone
-				for (l = 0; l < m_nBoneNum; l++, pWeights++, pIndices++)
+				for (l = 0; l < m_nBonesPerVertex; l++, pWeights++, pIndices++)
 				{
 					if (*pWeights == 0.0f) continue;
 					FWULONG offset = map[*pIndices];
@@ -983,7 +1074,7 @@ HRESULT CMesh::BWCopyToBufSubmeshed()
 			iFace++;
 		}
 		pSubmeshLen++;
-		pSubmeshBones += m_nBoneNum;
+		pSubmeshBones += m_nBonesPerVertex;
 	}
 
 	delete [] pOffset;
@@ -1005,15 +1096,15 @@ HRESULT CMesh::BWDisposeStuff()
 void CMesh::BWNormalizeVertex(FWULONG iVertex)
 {
 	FWFLOAT norm = 0.0f;
-	FWFLOAT *p = m_pBWWeights + iVertex * m_nBoneNum;
+	FWFLOAT *p = m_pBWWeights + iVertex * m_nBonesPerVertex;
 	FWFLOAT *q = p;
 	FWULONG j;
-	for (j = 0; j < m_nBoneNum; j++) 
+	for (j = 0; j < m_nBonesPerVertex; j++) 
 		norm += *p++;
 	if (norm - 1.0f < 4.0e-7f && norm - 1.0f > -4.0e-7f) 
 		return;
 	norm = 1.0f / norm;
-	for (j = 0; j < m_nBoneNum; j++) 
+	for (j = 0; j < m_nBonesPerVertex; j++) 
 	{
 		*q *= norm;
 		if (*q > 0.99999 && *q < 1.000001) *q = 1.0f;

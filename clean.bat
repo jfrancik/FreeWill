@@ -50,4 +50,9 @@ rmdir /S /Q Debug
 rmdir /S /Q Release
 del fwlib.vcproj.*.user
 cd ..
+cd FWStarter
+rmdir /S /Q Debug
+rmdir /S /Q Release
+del FWStarter.vcproj.*.user
+cd ..
 echo Done...

@@ -282,7 +282,7 @@ HRESULT _stdcall CFileLoader::OnVertex(FWVECTOR vVertex, FWULONG nBonesCount, LP
 		// blending!
 		if (m_iV == 0)
 		{
-			h = m_pMesh->SupportBlendWeight(0.01f, 0);
+			h = m_pMesh->InitAdvVertexBlending(0.01f, 0);
 //			m_iV += 2;
 //			h = m_pMesh->AddBlendWeight(0, 1.0f, L"Pelvis");
 //			h = m_pMesh->AddBlendWeight(1, 1.0f, L"Pelvis");
@@ -341,7 +341,7 @@ HRESULT _stdcall CFileLoader::OnFace(FWULONG iVertexA, FWULONG iVertexB, FWULONG
 
 	if (m_iF == 0)
 	{
-		h = m_pMesh->SupportNormal(0);
+		h = m_pMesh->InitAdvNormalSupport(0);
 		if (FAILED(h)) return h;
 		m_iV = 0;
 	}
