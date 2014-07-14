@@ -161,10 +161,16 @@ HRESULT _stdcall CDX9Renderer::PutViewport(FWFLOAT fX, FWFLOAT fY, FWFLOAT fWidt
 	GetBackBufferSize(&nWBack, &nHBack);
 	GetViewSize(&nWSize, &nHSize);
 
-	nX *= (FWLONG)nWBack; nX /= (FWLONG)nWSize;
-	nY *= (FWLONG)nHBack; nY /= (FWLONG)nHSize;
-	nWidth *= (FWLONG)nWBack; nWidth /= (FWLONG)nWSize;
-	nHeight *= (FWLONG)nHBack; nHeight /= (FWLONG)nHSize;
+	if (nWSize)
+	{
+		nX *= (FWLONG)nWBack; nX /= (FWLONG)nWSize;
+		nWidth *= (FWLONG)nWBack; nWidth /= (FWLONG)nWSize;
+	}
+	if(nHSize)
+	{
+		nY *= (FWLONG)nHBack; nY /= (FWLONG)nHSize;
+		nHeight *= (FWLONG)nHBack; nHeight /= (FWLONG)nHSize;
+	}
 
 	D3DVIEWPORT9 vp;
 	vp.X = (DWORD)(nWBack * fX) + nX;
