@@ -905,7 +905,7 @@ void CFreeWillView::SaveAVI(LPCTSTR fname)
 	if (pCamera)
 		pCamera->Render(m_pRenderer);
 
-	m_pRenderer->OpenMovieFile(fname, 25);
+	m_pRenderer->OpenMovieFile(fname, 25/*, 5000000*/);
 	FWULONG i = 0;
 	while (m_pActionTick->AnySubscriptionsLeft())
 	{

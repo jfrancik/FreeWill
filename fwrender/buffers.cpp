@@ -39,6 +39,18 @@ HRESULT CMeshDX9VertexBuffer::D3DError(HRESULT nD3DErrorCode)
 ///////////////////////////////////////////////////////////
 // CMeshDX9VertexBuffer: IUnknown implementation
 
+CMeshDX9VertexBuffer::CMeshDX9VertexBuffer() : m_nItemSize(0), m_nBufSize(0), m_nDataSize(0), m_pDevice(NULL), m_pBuffer(NULL)		
+{
+	memset(&m_description, 0, sizeof(m_description)); 
+}
+
+CMeshDX9VertexBuffer::~CMeshDX9VertexBuffer()
+{ 
+	Destroy(); 
+	if (m_pDevice) 
+		m_pDevice->Release();		// added 18 June 2016
+}
+
 HRESULT _stdcall CMeshDX9VertexBuffer::PutContextObject(FWULONG index, REFIID iid, void *pUnknown)
 {
 	if (!pUnknown) return ERROR(FW_E_POINTER);
@@ -258,6 +270,17 @@ HRESULT _stdcall CMeshDX9VertexBuffer::GetCaps(enum MESH_VERTEXID nFlag, FWULONG
 ///////////////////////////////////////////////////////////
 // Class CMeshDX9FaceBuffer
 
+CMeshDX9FaceBuffer::CMeshDX9FaceBuffer() : m_nItemSize(0), m_nBufSize(0), m_nDataSize(0), m_pDevice(NULL), m_pBuffer(NULL)		
+{
+}
+
+CMeshDX9FaceBuffer::~CMeshDX9FaceBuffer()
+{ 
+	Destroy(); 
+	if (m_pDevice) 
+		m_pDevice->Release();		// added 18 June 2016
+}
+
 HRESULT _stdcall CMeshDX9FaceBuffer::PutContextObject(FWULONG index, REFIID iid, void *pUnknown)
 {
 	if (!pUnknown) return ERROR(FW_E_POINTER);
@@ -322,16 +345,18 @@ HRESULT _stdcall CMeshDX9FaceBuffer::Create(FWULONG nSize)
 	m_nDataSize = 0;
 	D3DCAPS9 caps;
 	m_pDevice->GetDeviceCaps(&caps);
+	HRESULT h;
 	if (caps.MaxVertexIndex > 0xffff)
 	{	// 32-bit indices
 		m_nItemSize = 3 * sizeof(FWULONG);
-        return ERROR(m_pDevice->CreateIndexBuffer(m_nItemSize * m_nBufSize, /*D3DUSAGE_DYNAMIC*/0, D3DFMT_INDEX32, D3DPOOL_MANAGED, &m_pBuffer, NULL));
+        h = m_pDevice->CreateIndexBuffer(m_nItemSize * m_nBufSize, /*D3DUSAGE_DYNAMIC*/0, D3DFMT_INDEX32, D3DPOOL_MANAGED, &m_pBuffer, NULL);
 	}
 	else
 	{	// 16-bit indices
 		m_nItemSize = 3 * sizeof(short);
-        return ERROR(m_pDevice->CreateIndexBuffer(m_nItemSize * m_nBufSize, /*D3DUSAGE_DYNAMIC*/0, D3DFMT_INDEX16, D3DPOOL_MANAGED, &m_pBuffer, NULL));
+        h = m_pDevice->CreateIndexBuffer(m_nItemSize * m_nBufSize, /*D3DUSAGE_DYNAMIC*/0, D3DFMT_INDEX16, D3DPOOL_MANAGED, &m_pBuffer, NULL);
 	}
+	return ERROR(h);
 }
 
 HRESULT _stdcall CMeshDX9FaceBuffer::Destroy()

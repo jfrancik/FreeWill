@@ -499,10 +499,14 @@ interface IKineNode : IKineChild
 	HRESULT CreateFlatNamespace();
 
 	/// Creates an IKineEnumChildren object that enumerates all the direct child nodes of the calling node
-	HRESULT EnumAllDescendants([out, retval] IKineEnumChildren **p);
+	HRESULT EnumChildren([out, retval] IKineEnumChildren **p);
 
 	/// Creates an IKineEnumChildren object that recursively enumerates all the descendant nodes using depth-first search approach
-	HRESULT EnumChildren([out, retval] IKineEnumChildren **p);
+	HRESULT EnumAllDescendants([out, retval] IKineEnumChildren **p);
+
+	/// Same as EnumAllDescendants - but does not enumerate instances of iidExclude and its dependants
+	HRESULT EnumAllDirectDescendants(REFIID iidExclude, [out, retval] IKineEnumChildren **p);
+
 };
 
 

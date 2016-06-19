@@ -83,9 +83,8 @@ protected:
 	FWULONG m_fvf;						// DX FVF: flexible vertex format
 
 public:
-	CMeshDX9VertexBuffer() : m_nItemSize(0), m_nBufSize(0), m_nDataSize(0), m_pDevice(NULL), m_pBuffer(NULL)		
-										{ memset(&m_description, 0, sizeof(m_description)); }
-	~CMeshDX9VertexBuffer()				{ Destroy(); }
+	CMeshDX9VertexBuffer();
+	~CMeshDX9VertexBuffer();
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -137,9 +136,8 @@ protected:
 	IDirect3DIndexBuffer9 *m_pBuffer;	// DX buffer
 
 public:
-	CMeshDX9FaceBuffer() : m_nItemSize(0), m_nBufSize(0), m_nDataSize(0), m_pDevice(NULL), m_pBuffer(NULL)		
-							{ }
-	~CMeshDX9FaceBuffer()	{ Destroy(); }
+	CMeshDX9FaceBuffer();
+	~CMeshDX9FaceBuffer();
 };
 
 #endif

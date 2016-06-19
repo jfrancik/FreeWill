@@ -252,7 +252,8 @@ void CSceneObject::SetRenderInternalData()
 
 	IKineChild *pChild = NULL;
 	IKineEnumChildren *pEnum = NULL;
-	EnumAllDescendants(&pEnum);
+	EnumAllDirectDescendants(IID_ISceneObject, &pEnum);
+//	EnumAllDescendants(&pEnum);
 	while (pEnum->Next(&pChild) == S_OK)
 	{
 		IMesh *pMesh;

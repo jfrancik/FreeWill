@@ -14,6 +14,7 @@
 #include "fwrender.h"
 
 #include "AviFile.h"
+#include "MediaFile.h"
 
 #include <D3d9.h>
 
@@ -79,8 +80,8 @@ public:
 
 	virtual HRESULT _stdcall OpenStillFile(LPCTSTR pFilename, enum FW_RENDER_BITMAP fmt);
 	virtual HRESULT _stdcall CloseStillFile();
-	virtual HRESULT _stdcall OpenMovieFile(LPCTSTR pFilename, FWULONG nFPS);
-	virtual HRESULT _stdcall OpenMovieFileWithCodec(LPCTSTR pFilename, FWULONG nFPS, signed char *fccCodec);
+	virtual HRESULT _stdcall OpenMovieFile(LPCTSTR pFilename, FWULONG nFPS, FWULONG nBitrate);
+	//virtual HRESULT _stdcall OpenMovieFileWithCodec(LPCTSTR pFilename, FWULONG nFPS, signed char *fccCodec);
 	virtual HRESULT _stdcall CloseMovieFile();
 
 	// animation control
@@ -157,7 +158,8 @@ protected:
 	FWULONG m_nOffsW, m_nOffsH;				// size of the offscreen image (not necessarily the buffer)
 	FWSTRING m_pStillFilename;
 	FW_RENDER_BITMAP m_fmtStill;
-	CAviFile *m_pAviFile;					// AVI file
+	//CAviFile *m_pAviFile;					// AVI file
+	CMediaFile *m_pMedia;					// Media file (FFMPEG)
 
 	// helper functions
 	HRESULT CDX9Renderer::__SetInitialRenderStates();
@@ -173,7 +175,7 @@ public:
 		m_nTotalTime(0), m_nStartTime(0), m_nLastTime(0), m_fAccel(1.0f), m_bTotal(false), m_bPlay(false), m_bPause(false),
 		m_bOnScreen(true),
 		m_pOffsSurface(NULL), m_pOffsDS(NULL), m_pBackSurface(NULL), m_pBackDS(NULL),
-		m_nOffsW(0), m_nOffsH(0), m_pStillFilename(NULL), m_pAviFile(NULL) 
+		m_nOffsW(0), m_nOffsH(0), m_pStillFilename(NULL), /*m_pAviFile(NULL),*/ m_pMedia(NULL)
 	{ memset(m_ppfnCB, 0, sizeof(m_ppfnCB)); }
 
 	~CDX9Renderer()				{ DoneDisplay(); }

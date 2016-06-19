@@ -5,6 +5,8 @@
 
 #pragma once
 
+#define _CRTDBG_MAP_ALLOC
+
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500		// Specifies that the minimum required platform is Windows 2000.
 #endif
@@ -13,3 +15,4 @@
 
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
+

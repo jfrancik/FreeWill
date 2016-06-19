@@ -31,7 +31,7 @@ HRESULT CDX9Texture::D3DError(HRESULT nD3DErrorCode)
 
 CDX9Texture::CDX9Texture():
 	m_pDX9Texture(NULL),
-	m_pDX9Device(NULL),
+	m_pDevice(NULL),
 	m_fUTile(FWFLOAT(1.0)),
 	m_fVTile(FWFLOAT(1.0))
 {
@@ -40,8 +40,8 @@ CDX9Texture::CDX9Texture():
 CDX9Texture::~CDX9Texture()
 {
 	FreeData();
-	if (m_pDX9Device != NULL)
-		m_pDX9Device->Release();
+	if (m_pDevice != NULL)
+		m_pDevice->Release();
 }
 
 HRESULT __stdcall CDX9Texture::FreeData()
@@ -55,14 +55,14 @@ HRESULT __stdcall CDX9Texture::FreeData()
 HRESULT __stdcall CDX9Texture::LoadFromFile(LPOLESTR szFileName)
 {
 	FreeData();
-	if (m_pDX9Device != NULL)
+	if (m_pDevice != NULL)
 	{
-		//HRESULT h = D3DXCreateTextureFromFileEx(m_pDX9Device, sBuff, 
+		//HRESULT h = D3DXCreateTextureFromFileEx(m_pDevice, sBuff, 
 		//	D3DX_DEFAULT, D3DX_DEFAULT, D3DX_DEFAULT, 0, D3DFMT_UNKNOWN, 
 		//	D3DPOOL_MANAGED, D3DX_FILTER_TRIANGLE|D3DX_FILTER_MIRROR, 
 		//	D3DX_FILTER_TRIANGLE|D3DX_FILTER_MIRROR, 0, NULL, NULL,
 		//	&m_pDX9Texture);
-		HRESULT h = D3DXCreateTextureFromFile(m_pDX9Device, szFileName, &m_pDX9Texture);
+		HRESULT h = D3DXCreateTextureFromFile(m_pDevice, szFileName, &m_pDX9Texture);
 		if (FAILED(h)) return ERROR(MAT_TEXTURE_FROM_FILE_ERROR, 1, (FWULONG*)(&szFileName));
 		// Error here is not critical...
 		return S_OK;
@@ -73,10 +73,10 @@ HRESULT __stdcall CDX9Texture::LoadFromFile(LPOLESTR szFileName)
 HRESULT __stdcall CDX9Texture::LoadFromFileInMemory(BYTE* pData, FWULONG nDataSize)
 {
 	FreeData();
-	if (m_pDX9Device != NULL)
+	if (m_pDevice != NULL)
 	{
 		HRESULT h = D3DXCreateTextureFromFileInMemoryEx(
-			m_pDX9Device, (LPVOID) pData, nDataSize, 
+			m_pDevice, (LPVOID) pData, nDataSize, 
 			D3DX_DEFAULT, D3DX_DEFAULT, D3DX_DEFAULT, 0, D3DFMT_UNKNOWN, 
 			D3DPOOL_MANAGED, D3DX_FILTER_TRIANGLE|D3DX_FILTER_MIRROR, 
 			D3DX_FILTER_TRIANGLE|D3DX_FILTER_MIRROR, 0, NULL, NULL,
@@ -127,10 +127,10 @@ HRESULT __stdcall CDX9Texture::PutContextObject(FWULONG index, REFIID iid, void 
 		}
 		if (iid == IID_IDirect3DDevice9)
 		{
-			if (m_pDX9Device != NULL)
-				m_pDX9Device->Release();
-			m_pDX9Device = NULL;
-			if FAILED(((IUnknown*)pUnknown)->QueryInterface(&m_pDX9Device)) return ERROR(FW_E_POINTER);
+			if (m_pDevice != NULL)
+				m_pDevice->Release();
+			m_pDevice = NULL;
+			if FAILED(((IUnknown*)pUnknown)->QueryInterface(&m_pDevice)) return ERROR(FW_E_POINTER);
 			return S_OK;
 		}
 	}

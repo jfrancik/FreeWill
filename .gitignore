@@ -2,6 +2,7 @@
 *.sdf
 Debug
 Release
+ipch
 
 FWStarter
 FWStarter/*.*

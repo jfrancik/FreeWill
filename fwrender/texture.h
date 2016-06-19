@@ -18,7 +18,7 @@ class CDX9Texture: public FWUNKNOWN<ITexture, IID_ITexture, ITexture>
 {
 protected:
 	IDirect3DTexture9* m_pDX9Texture;
-	IDirect3DDevice9* m_pDX9Device;
+	IDirect3DDevice9* m_pDevice;
 	FWFLOAT m_fUTile, m_fVTile;
 	
 public:

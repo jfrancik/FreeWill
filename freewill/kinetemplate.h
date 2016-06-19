@@ -1244,6 +1244,16 @@ public:
 		return S_OK;
 	}
 
+	virtual HRESULT __stdcall EnumAllDirectDescendants(REFIID iidExclude, IKineEnumChildren **pp)
+	{
+		assert(pp);
+		CKineEnumChildren *p = new CKineEnumChildren(this, true, iidExclude);
+		if (!p) return ERROR(FW_E_OUTOFMEMORY, 0, NULL, NULL, 0);
+		FWDevice()->RegisterObject(p);
+		*pp = p;
+		return S_OK;
+	}
+
 	virtual HRESULT __stdcall EnumAllDescendants(IKineEnumChildren **pp)
 	{
 		assert(pp);
@@ -1790,9 +1800,18 @@ protected:
 	IKineNode *m_pNode;
 	FWULONG m_i;
 	IKineEnumChildren *m_pRecEnum;	// enumerator for recursive search
+	IID m_iidExcl;
 
 public:
 	CKineEnumChildren(IKineNode *p = NULL, bool bAllDesc = FALSE) : m_pNode(p), m_bAllDesc(bAllDesc)
+	{
+		memset(&m_iidExcl, 0, sizeof(m_iidExcl));
+		m_pRecEnum = NULL;
+		if (m_pNode) m_pNode->AddRef();
+		Reset();
+	}
+
+	CKineEnumChildren(IKineNode *p, bool bAllDesc, REFIID iidExcl) : m_pNode(p), m_bAllDesc(true), m_iidExcl(iidExcl)
 	{
 		m_pRecEnum = NULL;
 		if (m_pNode) m_pNode->AddRef();
@@ -1826,13 +1845,22 @@ public:
 		if (m_i < nCount)
 			h = m_pNode->GetChildAt(m_i, &pChild);
 
+		IUnknown *pExcl = NULL;
+		if (pChild && SUCCEEDED(pChild->QueryInterface(m_iidExcl, (void**)&pExcl)))
+		{
+			m_i++;
+			pExcl->Release();
+			pChild->Release();
+			return Next(pResult);
+		}
+
 		if (pResult) *pResult = pChild;
 		else if (pChild) pChild->Release();
 
 		IKineNode *pChildNode = NULL;
 		if (m_bAllDesc && pChild && pChild->IsParent(m_pNode) == S_OK && SUCCEEDED(pChild->QueryInterface(&pChildNode)))
 		{
-			pChildNode->EnumAllDescendants(&m_pRecEnum);
+			pChildNode->EnumAllDirectDescendants(m_iidExcl, &m_pRecEnum);
 			pChildNode->Release();
 		}
 		

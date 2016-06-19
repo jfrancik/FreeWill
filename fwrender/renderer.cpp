@@ -7,6 +7,8 @@
 #include "texture.h"
 
 #include <assert.h>
+#include <cvt/wstring>
+#include <codecvt>
 
 #include <D3d9.h>
 #include <d3dx9tex.h>
@@ -333,9 +335,10 @@ HRESULT _stdcall CDX9Renderer::RenderMesh(struct RNDR_MESHEDOBJ *pInfo)
 		// set bone matrices
 		for (FWULONG j = 0; j < pInfo->nIndexNum; j++)
 			if (pInfo->pTransformIndices[j] != 0xffffffff)
+			{
+				assert(pInfo->pTransformIndices[j] < pInfo->nMatrixNum);
 				h = m_pDevice->SetTransform(D3DTS_WORLDMATRIX(j), pMatrices + pInfo->pTransformIndices[j]);
-				//h = m_pDevice->SetTransform(D3DTS_WORLDMATRIX(j), (D3DMATRIX*)pInfo->pMatrices + pInfo->pTransformIndices[j]);
-
+			}
 		delete [] pMatrices;
 	}
 	
@@ -367,6 +370,9 @@ HRESULT _stdcall CDX9Renderer::RenderMesh(struct RNDR_MESHEDOBJ *pInfo)
 		break;
 	}
     
+	h = m_pDevice->SetStreamSource(0, NULL, 0, pInfo->nVertexSize); if (FAILED(h)) return D3D_ERROR(h);	// added 18 June 2016
+	h = m_pDevice->SetIndices(NULL); if (FAILED(h)) return D3D_ERROR(h);								// added 18 June 2016
+
 	if (FAILED(h)) return D3D_ERROR(h);
 
 	// release texture
@@ -675,6 +681,8 @@ HRESULT _stdcall CDX9Renderer::InitOffScreen(FWULONG nWidth, FWULONG nHeight)
 	if (FAILED(h)) return D3D_ERROR(h);
 	h = m_pDevice->SetRenderTarget(0, m_pOffsSurface);
 	if (FAILED(h)) return D3D_ERROR(h);
+
+	pTexture->Release();	// added 18 June 2016
 	
 	// store the Depth Stencil Buffer, set new Depth Stencil Surface
 	h = m_pDevice->GetDepthStencilSurface(&m_pBackDS);
@@ -696,7 +704,8 @@ HRESULT _stdcall CDX9Renderer::DoneDisplay()
 	if (m_pFaceBuffer) m_pFaceBuffer->Release(); m_pFaceBuffer = NULL;
 	if (m_pITransformView) m_pITransformView->Release(); m_pITransformView = NULL;
 	if (m_pITransformProjection) m_pITransformProjection->Release(); m_pITransformProjection = NULL;
-	if (m_pAviFile) delete m_pAviFile; m_pAviFile = NULL;
+	//if (m_pAviFile) delete m_pAviFile; m_pAviFile = NULL;
+	if (m_pMedia) delete m_pMedia; m_pMedia = NULL;
 	if (m_pDevice) m_pDevice->Release(); m_pDevice = NULL;
 	if (m_pD3D) m_pD3D->Release(); m_pD3D = NULL;
 
@@ -856,12 +865,11 @@ HRESULT _stdcall CDX9Renderer::EndFrame()
 			free(m_pStillFilename);
 			m_pStillFilename = NULL;
 		}
-		if (m_pAviFile)
+		if (m_pMedia)
 		{
 			// add to an avi file...
 			D3DLOCKED_RECT lockedRect;
 			RECT rect = { 0, 0, m_nOffsW, m_nOffsH };
-
 
 			HRESULT h;
 			IDirect3DSurface9 *pSurface = NULL;
@@ -871,25 +879,102 @@ HRESULT _stdcall CDX9Renderer::EndFrame()
 			h = m_pDevice->CreateOffscreenPlainSurface(m_nOffsW, m_nOffsH, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &pSurface, NULL);
 			if (FAILED(h)) return D3D_ERROR(h);
 
-	
-	
-	
 			h = m_pDevice->GetRenderTargetData(m_pOffsSurface, pSurface);
 			if (FAILED(h)) return D3D_ERROR(h);
 
-
 			h = pSurface->LockRect(&lockedRect, &rect, D3DLOCK_NO_DIRTY_UPDATE|D3DLOCK_NOSYSLOCK|D3DLOCK_READONLY);
 			if (FAILED(h)) return D3D_ERROR(h);
-			BYTE *pBits = new BYTE[m_nOffsW * m_nOffsH * 4];
-			for(UINT i = 0; i < m_nOffsH; i++)
-				memcpy((BYTE*)pBits + (m_nOffsH-i-1) * m_nOffsW * 4, (BYTE*)lockedRect.pBits + i * lockedRect.Pitch, m_nOffsW * 4);
+			
+			
+			// OPTIMISED RGB -> YUV CONVERTER
+			int nSrcLineSize = lockedRect.Pitch;
+			int n2SrcLineSize = nSrcLineSize + nSrcLineSize;
+			BYTE *pSrcLine0 = (BYTE*)(lockedRect.pBits);
+			BYTE *pSrcLine1 = pSrcLine0 + nSrcLineSize;
+
+			uint8_t **ppData;
+			int *pLinesize;
+			m_pMedia->get_video_frame(ppData, pLinesize);
+			int nYLineSize = pLinesize[0];
+			int n2YLineSize = nYLineSize + nYLineSize;
+			int nULineSize = pLinesize[1];
+			int nVLineSize = pLinesize[2];
+			BYTE *pYLine0 = ppData[0];
+			BYTE *pYLine1 = pYLine0 + nYLineSize;
+			BYTE *pULine = ppData[1];
+			BYTE *pVLine = ppData[2];
+
+			for (FWULONG i = 0; i < m_nOffsH / 2; i++)
+			{
+				BYTE *pSrc0 = pSrcLine0;
+				BYTE *pSrc1 = pSrcLine1;
+				BYTE *pY0 = pYLine0;
+				BYTE *pY1 = pYLine1;
+				BYTE *pU = pULine;
+				BYTE *pV = pVLine;
+				for (FWULONG j = 0; j < m_nOffsW / 2; j++)
+				{
+					int r, g, b;
+					int Y, U, V;
+					int x = j + j;
+					int y = i + i;
+
+					// Y[0, 0]
+					b = *pSrc0++;
+					g = *pSrc0++;
+					r = *pSrc0++;
+					pSrc0++;	// jump over alpha
+					Y = ( (  66 * r + 129 * g +  25 * b + 128) >> 8) +  16;
+					*pY0++ = Y;
+
+					// U/V
+					U = ( ( -43 * r -  85 * g + 128 * b + 128) >> 8) + 128;
+					V = ( ( 128 * r - 107 * g -  21 * b + 128) >> 8) + 128;
+					*pU++ = U;
+					*pV++ = V;
+
+					// Y[1, 0]
+					b = *pSrc0++;
+					g = *pSrc0++;
+					r = *pSrc0++;
+					pSrc0++;	// jump over alpha
+					Y = ( (  66 * r + 129 * g +  25 * b + 128) >> 8) +  16;
+					*pY0++ = Y;
+
+					// Y[0, 1]
+					b = *pSrc1++;
+					g = *pSrc1++;
+					r = *pSrc1++;
+					pSrc1++;	// jump over alpha
+					Y = ( (  66 * r + 129 * g +  25 * b + 128) >> 8) +  16;
+					*pY1++ = Y;
+
+					// Y[1, 1]
+					b = *pSrc1++;
+					g = *pSrc1++;
+					r = *pSrc1++;
+					pSrc1++;	// jump over alpha
+					Y = ( (  66 * r + 129 * g +  25 * b + 128) >> 8) +  16;
+					*pY1++ = Y;
+				}
+				pSrcLine0 += n2SrcLineSize;
+				pSrcLine1 += n2SrcLineSize;
+				pYLine0 += n2YLineSize;
+				pYLine1 += n2YLineSize;
+				pULine += nULineSize;
+				pVLine += nULineSize;
+			}
+										
 			pSurface->UnlockRect();
 			pSurface->Release();
-			SetTargetToScreen();
-			h = m_pAviFile->AppendNewFrame(m_nOffsW, m_nOffsH, pBits);
-			SetTargetOffScreen();
+
+			m_pMedia->write_video_frame();
+
+//			SetTargetToScreen();
+//			h = m_pAviFile->AppendNewFrame(m_nOffsW, m_nOffsH, pBits);
+//			SetTargetOffScreen();
+
 			if (FAILED(h)) return D3D_ERROR(h);
-			delete [] pBits;
 
 			return S_OK;
 		}
@@ -966,25 +1051,48 @@ HRESULT _stdcall CDX9Renderer::CloseStillFile()
 	return S_OK;
 }
 
-HRESULT _stdcall CDX9Renderer::OpenMovieFile(LPCTSTR pFilename, FWULONG nFramesPerSecond)
+HRESULT _stdcall CDX9Renderer::OpenMovieFile(LPCTSTR pFilename, FWULONG nFramesPerSecond, FWULONG nBitrate)
 {
-	m_pAviFile = new CAviFile(pFilename, nFramesPerSecond);
+	// convert from UNICODE to ASCII
+	std::string filename = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(pFilename);
+
+	FWULONG width, height;
+	GetBackBufferSize(&width, &height);
+
+	try
+	{
+		m_pMedia = new CMediaFile;
+		m_pMedia->open(filename.c_str());
+		m_pMedia->add_video_stream(width, height, nFramesPerSecond, 0*nBitrate);
+		m_pMedia->disable_audio_stream();
+	}
+	catch (MEDIA_ERROR e)
+	{
+	}
+
 	return S_OK;
 }
 
-HRESULT _stdcall CDX9Renderer::OpenMovieFileWithCodec(LPCTSTR pFilename, FWULONG nFramesPerSecond, signed char *fccCodec)
-{
-	if (fccCodec)
-		m_pAviFile = new CAviFile(pFilename, nFramesPerSecond, mmioFOURCC(fccCodec[0], fccCodec[1], fccCodec[2], fccCodec[3]));
-	else
-		m_pAviFile = new CAviFile(pFilename, nFramesPerSecond);
-	return S_OK;
-}
+//HRESULT _stdcall CDX9Renderer::OpenMovieFileWithCodec(LPCTSTR pFilename, FWULONG nFramesPerSecond, signed char *fccCodec)
+//{
+////	if (fccCodec)
+////		m_pAviFile = new CAviFile(pFilename, nFramesPerSecond, mmioFOURCC(fccCodec[0], fccCodec[1], fccCodec[2], fccCodec[3]));
+////	else
+////		m_pAviFile = new CAviFile(pFilename, nFramesPerSecond);
+//	return S_OK;
+//}
 
 HRESULT _stdcall CDX9Renderer::CloseMovieFile()
 {
-	if (m_pAviFile) delete m_pAviFile;
-	m_pAviFile = NULL;
+	if (m_pMedia)
+	{
+		m_pMedia->finish_and_close();
+		delete m_pMedia;
+	}
+	m_pMedia = NULL;
+
+	//if (m_pAviFile) delete m_pAviFile;
+	//m_pAviFile = NULL;
 	return S_OK;
 }
 
@@ -1125,7 +1233,8 @@ HRESULT _stdcall CDX9Renderer::CreateTexture(ITexture** ppTexture)
 	{
 		*ppTexture = new CDX9Texture;
 		FWDevice()->RegisterObject(*ppTexture);
-		return (*ppTexture)->PutContextObject(0, IID_IDirect3DDevice9, m_pDevice);
+		HRESULT h = (*ppTexture)->PutContextObject(0, IID_IDirect3DDevice9, m_pDevice);
+		return h;
 	}
 	return S_FALSE;
 }

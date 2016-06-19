@@ -5,6 +5,8 @@
 
 #pragma once
 
+#define _CRTDBG_MAP_ALLOC
+
 #pragma warning (disable:4996)
 
 // Specify that the minimum required platform is Windows 2000
@@ -35,3 +37,4 @@
 #endif 
 
 #include <assert.h>
+
