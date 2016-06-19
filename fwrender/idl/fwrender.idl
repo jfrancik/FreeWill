@@ -109,8 +109,9 @@ interface IRenderer : IRndrGeneric
 
 	HRESULT OpenStillFile(LPCTSTR pFilename, enum FW_RENDER_BITMAP fmt);	///< Opens a still (bitmap) file
 	HRESULT CloseStillFile();								///< Closes a still (bitmap) file - normally, saved automatically from EndFrame
-	HRESULT OpenMovieFile(LPCTSTR pFilename, FWULONG nFPS);	///< Opens a movie file
-	HRESULT CloseMovieFile();								///< Closes a movie file
+	HRESULT OpenMovieFile(LPCTSTR pFilename, FWULONG nFPS);										///< Opens a movie file
+	HRESULT OpenMovieFileWithCodec(LPCTSTR pFilename, FWULONG nFPS, signed char *fccCodec);	///< Opens a movie file
+	HRESULT CloseMovieFile();																	///< Closes a movie file
 
 	/// @name Animation Control
 	/// The functions below control the animation internal clock that drives the objects in the Display List.

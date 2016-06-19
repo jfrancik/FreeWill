@@ -80,6 +80,7 @@ public:
 	virtual HRESULT _stdcall OpenStillFile(LPCTSTR pFilename, enum FW_RENDER_BITMAP fmt);
 	virtual HRESULT _stdcall CloseStillFile();
 	virtual HRESULT _stdcall OpenMovieFile(LPCTSTR pFilename, FWULONG nFPS);
+	virtual HRESULT _stdcall OpenMovieFileWithCodec(LPCTSTR pFilename, FWULONG nFPS, signed char *fccCodec);
 	virtual HRESULT _stdcall CloseMovieFile();
 
 	// animation control

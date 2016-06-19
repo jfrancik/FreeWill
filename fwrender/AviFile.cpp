@@ -1,13 +1,14 @@
 #include "StdAfx.h"
 #include "avifile.h"
 
-CAviFile::CAviFile(LPCTSTR lpszFileName, DWORD nRate)
+CAviFile::CAviFile(LPCTSTR lpszFileName, DWORD nRate, DWORD fccHandler)
 {
 
 	AVIFileInit();
 
 	wcscpy(m_szFileName,lpszFileName);
 	m_nRate = nRate;
+	m_fccHandler = fccHandler;
 
 	m_hHeap=NULL;
 	m_hAviDC=NULL;
@@ -218,11 +219,27 @@ HRESULT	CAviFile::AppendFrameFirstTime(int nWidth, int nHeight, LPVOID pBits,int
 
 	AVICOMPRESSOPTIONS FAR *pOptions[1] = {&m_AviCompressOptions};
 	ZeroMemory(&m_AviCompressOptions,sizeof(AVICOMPRESSOPTIONS));
-	if (AVISaveOptions(NULL, 0, 1, &m_pAviStream, pOptions) == FALSE)
-		goto TerminateInitBits;
+	
+	if (m_fccHandler)
+	{
+		m_AviCompressOptions.fccHandler = m_fccHandler;
+		m_AviCompressOptions.dwFlags = AVICOMPRESSF_VALID;
 
-	if(FAILED(AVIMakeCompressedStream(&m_pAviCompressedStream,m_pAviStream,&m_AviCompressOptions,NULL)))
-		goto TerminateInitBits;
+		if(FAILED(AVIMakeCompressedStream(&m_pAviCompressedStream,m_pAviStream,&m_AviCompressOptions,NULL)))
+		{
+			if (AVISaveOptions(NULL, 0, 1, &m_pAviStream, pOptions) == FALSE)
+				goto TerminateInitBits;
+			if(FAILED(AVIMakeCompressedStream(&m_pAviCompressedStream,m_pAviStream,&m_AviCompressOptions,NULL)))
+				goto TerminateInitBits;
+		}
+	}
+	else
+	{
+		if (AVISaveOptions(NULL, 0, 1, &m_pAviStream, pOptions) == FALSE)
+			goto TerminateInitBits;
+		if(FAILED(AVIMakeCompressedStream(&m_pAviCompressedStream,m_pAviStream,&m_AviCompressOptions,NULL)))
+			goto TerminateInitBits;
+	}
 
 	if(FAILED(AVIStreamSetFormat(m_pAviCompressedStream,0,(LPVOID)&bmpInfo,bmpInfo.bmiHeader.biSize)))
 		goto TerminateInitBits;

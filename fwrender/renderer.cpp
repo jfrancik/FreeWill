@@ -863,13 +863,13 @@ HRESULT _stdcall CDX9Renderer::EndFrame()
 			RECT rect = { 0, 0, m_nOffsW, m_nOffsH };
 
 
-	HRESULT h;
-	IDirect3DSurface9 *pSurface = NULL;
-	D3DDISPLAYMODE ddm;
-	h = m_pD3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &ddm);
-	if (FAILED(h)) return D3D_ERROR(h);
-	h = m_pDevice->CreateOffscreenPlainSurface(m_nOffsW, m_nOffsH, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &pSurface, NULL);
-	if (FAILED(h)) return D3D_ERROR(h);
+			HRESULT h;
+			IDirect3DSurface9 *pSurface = NULL;
+			D3DDISPLAYMODE ddm;
+			h = m_pD3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &ddm);
+			if (FAILED(h)) return D3D_ERROR(h);
+			h = m_pDevice->CreateOffscreenPlainSurface(m_nOffsW, m_nOffsH, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &pSurface, NULL);
+			if (FAILED(h)) return D3D_ERROR(h);
 
 	
 	
@@ -884,10 +884,10 @@ HRESULT _stdcall CDX9Renderer::EndFrame()
 			for(UINT i = 0; i < m_nOffsH; i++)
 				memcpy((BYTE*)pBits + (m_nOffsH-i-1) * m_nOffsW * 4, (BYTE*)lockedRect.pBits + i * lockedRect.Pitch, m_nOffsW * 4);
 			pSurface->UnlockRect();
-pSurface->Release();
-SetTargetToScreen();
+			pSurface->Release();
+			SetTargetToScreen();
 			h = m_pAviFile->AppendNewFrame(m_nOffsW, m_nOffsH, pBits);
-SetTargetOffScreen();
+			SetTargetOffScreen();
 			if (FAILED(h)) return D3D_ERROR(h);
 			delete [] pBits;
 
@@ -969,6 +969,15 @@ HRESULT _stdcall CDX9Renderer::CloseStillFile()
 HRESULT _stdcall CDX9Renderer::OpenMovieFile(LPCTSTR pFilename, FWULONG nFramesPerSecond)
 {
 	m_pAviFile = new CAviFile(pFilename, nFramesPerSecond);
+	return S_OK;
+}
+
+HRESULT _stdcall CDX9Renderer::OpenMovieFileWithCodec(LPCTSTR pFilename, FWULONG nFramesPerSecond, signed char *fccCodec)
+{
+	if (fccCodec)
+		m_pAviFile = new CAviFile(pFilename, nFramesPerSecond, mmioFOURCC(fccCodec[0], fccCodec[1], fccCodec[2], fccCodec[3]));
+	else
+		m_pAviFile = new CAviFile(pFilename, nFramesPerSecond);
 	return S_OK;
 }
 

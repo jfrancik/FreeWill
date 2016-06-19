@@ -281,7 +281,7 @@ int CChildView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		pPitch->CreateChild(L"Pitch", &pBone);
 		pPitch->NewMesh(L"Pitch_mesh", &pMesh);
 		pMesh->Open(NULL, NULL);
-		pMesh->SupportNormal(0);
+		pMesh->InitAdvNormalSupport(0);
 		
 		FWULONG nVertex = 0;
 		pMesh->SetVertexXYZ(nVertex, 0, 0, 0); pMesh->AddNormal(&nVertex, 0, 0, 1); pMesh->SetVertexTextureUV(nVertex, 0, 0, 0); nVertex++;
@@ -293,7 +293,7 @@ int CChildView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		pMesh->SetFace(nFace, 0, 1, 2); nFace++;
 		pMesh->SetFace(nFace, 1, 3, 2); nFace++;
 
-		pMesh->SupportBlendWeight(0.01f, 0);
+		pMesh->InitAdvVertexBlending(0.01f, 0);
 		for (FWULONG i = 0; i < nVertex; i++)
 			pMesh->AddBlendWeight(i, 1.0f, L"Pitch");
 		pMesh->Close();
